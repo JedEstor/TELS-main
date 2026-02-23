@@ -329,3 +329,4 @@ class ForecastAdmin(admin.ModelAdmin):
     def total_amount_display(self, obj):
         return obj.total_amount
     total_amount_display.short_description = "Total amount"
+    
