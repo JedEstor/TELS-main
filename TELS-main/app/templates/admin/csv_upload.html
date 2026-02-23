@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CSV Upload</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-slate-900 text-slate-100">
+  <div class="max-w-xl mx-auto p-6">
+
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-xl font-bold text-blue-400">CSV Upload</h1>
+      <a href="{% url 'app:admin_dashboard' %}" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">
+        Back
+      </a>
+    </div>
+
+    {% if messages %}
+      <div class="space-y-2 mb-4">
+        {% for message in messages %}
+          <div class="rounded-lg bg-slate-800 border border-slate-700 px-4 py-2 text-sm">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="bg-slate-800 rounded-xl p-5 space-y-4">
+      {% csrf_token %}
+
+      <div>
+        <label class="block text-sm text-slate-300 mb-1">Upload CSV File</label>
+        <input type="file" name="csv_file" accept=".csv"
+               class="block w-full text-sm text-slate-200 file:mr-4 file:py-2 file:px-4
+                      file:rounded-lg file:border-0 file:bg-blue-600 file:text-white
+                      hover:file:bg-blue-500">
+      </div>
+
+      <button class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg">
+        Import
+      </button>
+
+      <p class="text-xs text-slate-400">
+        Expected headers: <span class="text-slate-200">tep_code, mat_partcode, mat_partname, mat_maker, mat_unit</span>
+      </p>
+    </form>
+
+  </div>
+</body>
+</html>

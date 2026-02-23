@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>User Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-slate-900 text-slate-100">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-blue-400">User Management</h1>
+        <p class="text-sm text-slate-400">Manage employee accounts and access</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <a href="{% url 'app:create_employee' %}"
+           class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">
+          Create Employee
+        </a>
+        <a href="{% url 'app:admin_dashboard' %}"
+           class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700">
+          Back
+        </a>
+      </div>
+    </div>
+
+    {% if messages %}
+      <div class="space-y-2">
+        {% for message in messages %}
+          <div class="rounded-lg bg-slate-800 border border-slate-700 px-4 py-2 text-sm">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+      <form method="get" class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <input
+            type="text"
+            name="q"
+            value="{{ q|default:'' }}"
+            placeholder="Search username / name / department..."
+            class="w-full sm:w-[480px] px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <button
+            type="submit"
+            class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white whitespace-nowrap"
+          >
+            Search
+          </button>
+        </div>
+
+        <div class="text-sm text-slate-400">
+          Total: <span class="text-slate-100 font-semibold">{{ users|length }}</span>
+        </div>
+      </form>
+    </div>
+
+    <div class="overflow-x-auto bg-slate-800 rounded-2xl border border-slate-700">
+      <table class="w-full text-sm min-w-[1100px]">
+        <thead class="bg-slate-900/60 text-slate-300">
+          <tr>
+            <th class="text-left p-3">Employee ID</th>
+            <th class="text-left p-3">Full Name</th>
+            <th class="text-left p-3">Department</th>
+            <th class="text-left p-3 whitespace-nowrap">Staff</th>
+            <th class="text-left p-3 whitespace-nowrap">Admin</th>
+            <th class="text-left p-3 whitespace-nowrap">Status</th>
+            <th class="text-right p-3 whitespace-nowrap">Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for u in users %}
+            <tr class="border-t border-slate-700 hover:bg-slate-900/40">
+              <td class="p-3 font-medium whitespace-nowrap">{{ u.username }}</td>
+
+              <td class="p-3 text-slate-200">
+                {% if u.employeeprofile %}
+                  {{ u.employeeprofile.full_name }}
+                {% else %}
+                  <span class="text-slate-500 italic">—</span>
+                {% endif %}
+              </td>
+
+              <td class="p-3 text-slate-300">
+                {% if u.employeeprofile %}
+                  {{ u.employeeprofile.department }}
+                {% else %}
+                  <span class="text-slate-500 italic">—</span>
+                {% endif %}
+              </td>
+
+              <td class="p-3">
+                {% if u.is_staff %}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-emerald-900/40 border border-emerald-600 text-emerald-200">
+                    Yes
+                  </span>
+                {% else %}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-rose-900/40 border border-rose-600 text-rose-200">
+                    No
+                  </span>
+                {% endif %}
+              </td>
+
+              <td class="p-3">
+                {% if u.is_superuser %}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-emerald-900/40 border border-emerald-600 text-emerald-200">
+                    Yes
+                  </span>
+                {% else %}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-rose-900/40 border border-rose-600 text-rose-200">
+                    No
+                  </span>
+                {% endif %}
+              </td>
+
+              <td class="p-3">
+                {% if u.is_active %}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-emerald-900/40 border border-emerald-600 text-emerald-200">
+                    Active
+                  </span>
+                {% else %}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-rose-900/40 border border-rose-600 text-rose-200">
+                    Disabled
+                  </span>
+                {% endif %}
+              </td>
+
+              <td class="p-3 text-right whitespace-nowrap">
+                {% if u.id != request.user.id %}
+                  <a href="{% url 'app:toggle_user_active' u.id %}"
+                     class="text-blue-400 hover:underline">
+                    Toggle Active
+                  </a>
+                {% else %}
+                  <span class="text-slate-500">Current</span>
+                {% endif %}
+              </td>
+            </tr>
+
+          {% empty %}
+            <tr>
+              <td colspan="7" class="p-8 text-center text-slate-400">
+                No users found.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+    </div>
+
+    <div class="text-xs text-slate-500">
+      Tip: If your screen is small, scroll sideways inside the table to see the Action column.
+    </div>
+
+  </div>
+</body>
+</html>
+

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Customer Details{% endblock %}
+
+{% block content %}
+  <a href="{% url 'app:customer_list' %}" class="text-sm text-slate-600 hover:underline">
+    ← Back to Customers
+  </a>
+
+  <div class="mt-4 bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+    <div class="flex flex-wrap justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold">{{ customer.customer_name }}</h1>
+
+        <div class="mt-1 flex flex-wrap gap-x-16 gap-y-2">
+          <div class="min-w-[280px]">
+            <span class="text-slate-600">Part Code:</span>
+            <span class="font-medium text-slate-900 ml-2">{{ selected_part }}</span>
+          </div>
+
+          <div class="min-w-[280px]">
+            <span class="text-slate-600">Part Name:</span>
+            <span class="font-medium text-slate-900 ml-2">{{ selected_part_name }}</span>
+          </div>
+        </div>
+
+        <p class="text-slate-600">
+          TEP Code:
+          <span class="px-2 py-1 rounded-lg bg-slate-100 border">
+            {{ selected_tep }}
+          </span>
+        </p>
+      </div>
+
+      <div class="flex gap-2">
+        {% if selected_tep %}
+          <a href="/api/tep-codes/{{ selected_tep }}/materials" target="_blank"
+            class="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800">
+            View Materials JSON
+          </a>
+
+        {% endif %}
+        
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b flex justify-between">
+      <span class="font-semibold">Materials</span>
+      <span class="text-sm text-slate-500">Count: {{ materials|length }}</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-100">
+          <tr>
+            <th class="px-4 py-3 text-left">Maker</th>
+            <th class="px-4 py-3 text-left">Material Code</th>
+            <th class="px-4 py-3 text-left">Material Name</th>
+            <th class="px-4 py-3 text-left">Unit</th>
+            <th class="px-4 py-3 text-left">Dim/Qty</th>
+            <th class="px-4 py-3 text-left">Loss %</th>
+            <th class="px-4 py-3 text-left">Total</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for m in materials %}
+            <tr class="border-t hover:bg-slate-50">
+              <td class="px-4 py-3">{{ m.mat_maker }}</td>
+              <td class="px-4 py-3 font-medium">{{ m.mat_partcode }}</td>
+              <td class="px-4 py-3">{{ m.mat_partname }}</td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded bg-slate-100 border">
+                  {{ m.unit }}
+                </span>
+              </td>
+              <td class="px-4 py-3">{{ m.dim_qty }}</td>
+              <td class="px-4 py-3">{{ m.loss_percent }}</td>
+              <td class="px-4 py-3">{{ m.total }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="px-4 py-8 text-center text-slate-500">
+                No materials found.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

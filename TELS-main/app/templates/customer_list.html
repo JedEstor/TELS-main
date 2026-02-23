@@ -1,0 +1,180 @@
+
+{% extends "base.html" %}
+{% block title %}Customers{% endblock %}
+
+{% block content %}
+  <div class="flex items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold">Customers</h1>
+      <p class="text-slate-600">View customers and open details using TEP Code.</p>
+    </div>
+
+    <form method="get" class="flex gap-2">
+      <input
+        type="text"
+        name="q"
+        value="{{ q|default:'' }}"
+        placeholder="Search customer / tep_code / part_code / materials..."
+        class="w-72 px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400"
+      />
+      <button class="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800" type="submit">
+        Search
+      </button>
+    </form>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+      <span class="font-semibold">Customer Records</span>
+      <span class="text-sm text-slate-500">Total: {{ customers|length }}</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-100 text-slate-700">
+          <tr>
+            <th class="px-4 py-3 text-left">Customer</th>
+            <th class="px-4 py-3 text-left">Part Code</th>
+            <th class="px-4 py-3 text-left">TEP Code</th>
+            <th class="px-4 py-3 text-left">Materials</th>
+            <th class="px-4 py-3 text-right">Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+        {% for c in customers %}
+          <tr class="border-t border-slate-200 hover:bg-slate-50">
+            <td class="px-4 py-3 font-medium">{{ c.customer_name }}</td>
+
+            <td class="px-4 py-3">
+              <select class="part-code-dropdown px-2 py-1 rounded border" data-row="{{ forloop.counter0 }}">
+                {% for pc in c.part_code_options %}
+                  <option value="{{ pc }}" {% if pc == c.default_part_code %}selected{% endif %}>{{ pc }}</option>
+                {% endfor %}
+              </select>
+            </td>
+
+            <td class="px-4 py-3">
+              <select class="tep-code-dropdown px-2 py-1 rounded border"
+                      data-row="{{ forloop.counter0 }}"
+                      id="tep-dd-{{ forloop.counter0 }}">
+                {% for t in c.default_tep_options %}
+                  <option value="{{ t.tep_id }}" {% if t.tep_id == c.default_tep_id %}selected{% endif %}>
+                    {{ t.tep_code }}
+                  </option>
+                {% endfor %}
+              </select>
+            </td>
+
+            <td class="px-4 py-3 material-count-cell" id="mat-{{ forloop.counter0 }}">
+              {{ c.default_materials_count|default:0 }}
+            </td>
+
+            <td class="px-4 py-3 text-right">
+              {% if c.default_tep_id %}
+                <a
+                  href="{% url 'app:customer_detail' c.default_tep_id %}?part_code={{ c.default_part_code|urlencode }}&customer_name={{ c.customer_name|urlencode }}"
+                  class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 view-link"
+                  id="view-{{ forloop.counter0 }}"
+                >
+                  View
+                </a>
+              {% else %}
+                <span class="px-3 py-2 rounded-xl bg-slate-200 text-slate-600 inline-block">No TEP</span>
+                <a href="#" class="hidden view-link" id="view-{{ forloop.counter0 }}">View</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="px-4 py-8 text-center text-slate-500">
+              No customers found.
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+  const detailUrlTemplate = "{% url 'app:customer_detail' 0 %}";
+
+  const partMaps = [
+    {% for c in customers %}
+      {{ c.part_code_map_json|safe }},
+    {% endfor %}
+  ];
+
+  const customerNames = [
+    {% for c in customers %}
+      "{{ c.customer_name|escapejs }}",
+    {% endfor %}
+  ];
+
+  function updateRow(rowIdx, selectedPartCode, selectedTepId = null) {
+    const map = partMaps[rowIdx] || {};
+    const entry = map[selectedPartCode];
+
+    const tepDropdown = document.getElementById("tep-dd-" + rowIdx);
+    const matCell = document.getElementById("mat-" + rowIdx);
+    const viewLink = document.getElementById("view-" + rowIdx);
+
+    if (!entry) {
+      tepDropdown.innerHTML = "";
+      matCell.textContent = "0";
+      viewLink.classList.add("hidden");
+      return;
+    }
+
+    const teps = entry.teps || [];
+    tepDropdown.innerHTML = "";
+
+    teps.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t.tep_id;
+      opt.textContent = t.tep_code;
+      tepDropdown.appendChild(opt);
+    });
+
+    let chosen = teps[0] || null;
+    if (selectedTepId) {
+      const found = teps.find(t => String(t.tep_id) === String(selectedTepId));
+      if (found) chosen = found;
+    }
+
+    if (!chosen) {
+      matCell.textContent = "0";
+      viewLink.classList.add("hidden");
+      return;
+    }
+
+    tepDropdown.value = chosen.tep_id;
+    matCell.textContent = chosen.materials_count ?? 0;
+
+    viewLink.href =
+      detailUrlTemplate.replace("/0/", `/${chosen.tep_id}/`) +
+      `?part_code=${encodeURIComponent(selectedPartCode)}&customer_name=${encodeURIComponent(customerNames[rowIdx] || "")}`;
+
+    viewLink.classList.remove("hidden");
+  }
+
+  document.querySelectorAll(".part-code-dropdown").forEach((dd) => {
+    dd.addEventListener("change", function () {
+      const rowIdx = Number(this.dataset.row);
+      updateRow(rowIdx, this.value);
+    });
+  });
+
+  document.querySelectorAll(".tep-code-dropdown").forEach((dd) => {
+    dd.addEventListener("change", function () {
+      const rowIdx = Number(this.dataset.row);
+      const partDd = document.querySelector(`.part-code-dropdown[data-row="${rowIdx}"]`);
+      const selectedPartCode = partDd ? partDd.value : "";
+      updateRow(rowIdx, selectedPartCode, this.value);
+    });
+  });
+
+</script>
+
+{% endblock %}

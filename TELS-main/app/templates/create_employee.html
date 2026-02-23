@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Employee</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    form p {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      margin-bottom: 0.75rem;
+    }
+    form label {
+      font-size: 0.75rem;
+      color: #cbd5e1;
+    }
+    form input {
+      width: 100%;
+      background: #334155;
+      border: 1px solid #475569;
+      border-radius: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.875rem;
+      color: #e5e7eb;
+    }
+    form input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgb(59 130 246 / 0.4);
+    }
+    .helptext {
+      color: #94a3b8;
+      font-size: 0.7rem;
+      margin-top: 0.15rem;
+    }
+    .errorlist {
+      color: #fca5a5;
+      font-size: 0.75rem;
+      margin: 0.15rem 0;
+      list-style: disc;
+      padding-left: 1rem;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-slate-900">
+
+  <div class="w-full max-w-sm bg-slate-800 rounded-xl shadow-lg p-5">
+
+    <h2 class="text-lg font-semibold text-center text-blue-400 mb-4">
+      Create Employee
+    </h2>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+
+      <button
+        type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium
+               py-2 rounded-lg transition duration-200 shadow"
+      >
+        Create Account
+      </button>
+    </form>
+
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-slate-100 text-slate-900">
+
+  <div class="bg-slate-900 text-slate-100">
+    <div class="max-w-7xl mx-auto p-6 space-y-6">
+
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-blue-400">Admin Dashboard</h1>
+          <p class="text-sm text-slate-300">Overview + quick access</p>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <a href="{% url 'app:customer_list' %}"
+             class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">
+            Customers Page
+          </a>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+           <a href="{% url 'app:logout' %}"
+            class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">
+            Logout
+          </a>
+        </div>
+
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <div class="text-sm text-slate-300">Customers</div>
+          <div class="text-2xl font-semibold">{{ customers_count }}</div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <div class="text-sm text-slate-300">TEP Codes</div>
+          <div class="text-2xl font-semibold">{{ tep_count }}</div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <div class="text-sm text-slate-300">Materials</div>
+          <div class="text-2xl font-semibold">{{ materials_count }}</div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <div class="text-sm text-slate-300">Users</div>
+          <div class="text-2xl font-semibold">{{ users_count }}</div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <div class="text-sm text-slate-300">Forecasts</div>
+          <div class="text-2xl font-semibold">{{ forecasts_count }}</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="bg-white">
+    <div class="max-w-7xl mx-auto p-6 space-y-6">
+
+      <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+        <a href="?tab=customers&q={{ q|urlencode }}"
+           class="px-4 py-2 rounded-xl border text-sm
+           {% if tab == 'customers' %}bg-blue-600 border-blue-600 text-white{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+          Customer Records
+        </a>
+
+        <a href="?tab=materials&mq={{ mq|urlencode }}"
+           class="px-4 py-2 rounded-xl border text-sm
+           {% if tab == 'materials' %}bg-blue-600 border-blue-600 text-white{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+          Material List
+        </a>
+
+        <a href="?tab=users&uq={{ uq|urlencode }}"
+           class="px-4 py-2 rounded-xl border text-sm
+           {% if tab == 'users' %}bg-blue-600 border-blue-600 text-white{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+          Users
+        </a>
+
+        <a href="?tab=forecast&fq={{ fq|urlencode }}"
+           class="px-4 py-2 rounded-xl border text-sm
+           {% if tab == 'forecast' %}bg-blue-600 border-blue-600 text-white{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+          Forecast
+        </a>
+      </div>
+
+      {% if messages %}
+        <div class="space-y-2">
+          {% for message in messages %}
+            <div class="rounded-xl border px-4 py-3 text-sm
+                        {% if message.tags == 'success' %}
+                          bg-emerald-50 border-emerald-200 text-emerald-800
+                        {% elif message.tags == 'error' %}
+                          bg-rose-50 border-rose-200 text-rose-800
+                        {% else %}
+                          bg-slate-50 border-slate-200 text-slate-700
+                        {% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if tab == "customers" %}
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <div class="lg:col-span-8">
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+
+            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-slate-900">Customer Records</h2>
+              </div>
+
+              <form method="get" class="flex gap-2">
+                <input type="hidden" name="tab" value="customers">
+                <input
+                  type="text"
+                  name="q"
+                  value="{{ q|default:'' }}"
+                  placeholder="Search customer / tep_code / part_code / materials..."
+                  class="w-80 max-w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white" type="submit">
+                  Search
+                </button>
+              </form>
+            </div>
+
+            <div>
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-700">
+                  <tr>
+                    <th class="px-4 py-3 text-left">Customer</th>
+                    <th class="px-4 py-3 text-left">Part Code</th>
+                    <th class="px-4 py-3 text-left">TEP Code</th>
+                    <th class="px-4 py-3 text-left">Materials</th>
+                    <th class="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                {% for c in customers %}
+                  <tr class="border-t border-slate-200 hover:bg-slate-50">
+                    <td class="px-4 py-3 font-medium">{{ c.customer_name }}</td>
+
+                    <td class="px-4 py-3">
+                      <select class="part-code-dropdown px-2 py-1 rounded border border-slate-300 bg-white text-slate-900"
+                              data-row="{{ forloop.counter0 }}">
+                        {% for pc in c.part_code_options %}
+                          <option value="{{ pc }}" {% if pc == c.default_part_code %}selected{% endif %}>{{ pc }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+
+                    <td class="px-4 py-3">
+                      <select class="tep-code-dropdown px-2 py-1 rounded border border-slate-300 bg-white text-slate-900"
+                              data-row="{{ forloop.counter0 }}"
+                              id="tep-dd-{{ forloop.counter0 }}">
+                        {% for t in c.default_tep_options %}
+                          <option value="{{ t.tep_id }}" {% if t.tep_id == c.default_tep_id %}selected{% endif %}>
+                            {{ t.tep_code }}
+                          </option>
+                        {% endfor %}
+                      </select>
+                    </td>
+
+                    <td class="px-4 py-3" id="mat-{{ forloop.counter0 }}">
+                      {{ c.default_materials_count|default:0 }}
+                    </td>
+
+                    <td class="px-4 py-3 text-right">
+                      {% if c.default_tep_id %}
+                        <a href="#"
+                           class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white view-link inline-flex"
+                           id="view-{{ forloop.counter0 }}"
+                           data-tep-id="{{ c.default_tep_id }}"
+                           data-part-code="{{ c.default_part_code|escapejs }}">
+                          View
+                        </a>
+                      {% else %}
+                        <span class="px-3 py-2 rounded-xl bg-slate-200 text-slate-600 inline-block">No TEP</span>
+                        <a href="#" class="hidden view-link" id="view-{{ forloop.counter0 }}">View</a>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="5" class="px-4 py-10 text-center text-slate-500">
+                      No customers found.
+                    </td>
+                  </tr>
+                {% endfor %}
+                </tbody>
+
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="lg:col-span-4">
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
+            <div>
+              <h3 class="text-base font-semibold text-slate-900">Add Customer Record</h3>
+            </div>
+
+            <form method="post" class="mt-4 space-y-3" id="customer-full-form">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="add_customer_full">
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Customer Name</label>
+                <input type="text" name="customer_name" required
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Partcode</label>
+                  <input type="text" name="part_code" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Partname</label>
+                  <input type="text" name="part_name" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">TEP Code</label>
+                <input type="text" name="tep_code" required
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+
+              <hr class="my-2">
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Material Partcode (from master list)</label>
+                <input type="text" name="mat_partcode" id="mat-partcode-input" required
+                       placeholder="e.g. 223S 0.19x19 BLACK"
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <div class="text-xs text-slate-500 mt-1" id="mat-master-hint"></div>
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Material Partname</label>
+                <input type="text" name="mat_partname" id="mat-partname" readonly
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700">
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Maker</label>
+                <input type="text" name="mat_maker" id="mat-maker" readonly
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700">
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Unit</label>
+                <input type="text" name="unit" id="mat-unit" readonly
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700">
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Dim/Qty</label>
+                  <input type="number" step="0.0001" name="dim_qty" id="dim-qty" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Loss %</label>
+                  <input type="number" step="0.01" name="loss_percent" id="loss-percent" value="10"
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <div class="text-xs text-slate-500 mt-1">Default 10%</div>
+                </div>
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Total</label>
+                <input type="text" name="total" id="total-field" readonly
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700">
+              </div>
+
+              <div class="pt-2">
+                <button type="submit"
+                        class="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+                  Save Record
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+
+      </div>
+      {% endif %}
+
+      {% if tab == "materials" %}
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <div class="lg:col-span-8">
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+
+            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-slate-900">Material Masterlist</h2>
+              </div>
+
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <form method="get" class="flex items-center gap-2">
+                  <input type="hidden" name="tab" value="materials">
+                  <input
+                    type="text"
+                    name="mq"
+                    value="{{ mq|default:'' }}"
+                    placeholder="Search partcode / name / maker / unit..."
+                    class="h-10 w-80 max-w-full px-3 rounded-xl bg-white border border-slate-300 text-slate-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button class="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white" type="submit">
+                    Search
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div class="px-5 py-3 border-b border-slate-200 text-sm text-slate-600 flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                Total: <span class="font-semibold text-slate-900">{{ material_total }}</span>
+              </div>
+              {% if page_obj %}
+              <div class="text-slate-500">
+                Page <span class="font-semibold text-slate-900">{{ page_obj.number }}</span>
+                of <span class="font-semibold text-slate-900">{{ page_obj.paginator.num_pages }}</span>
+              </div>
+              {% endif %}
+            </div>
+
+            <div>
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-700">
+                  <tr>
+                    <th class="px-4 py-3 text-left">Part Code</th>
+                    <th class="px-4 py-3 text-left">Name</th>
+                    <th class="px-4 py-3 text-left">Maker</th>
+                    <th class="px-4 py-3 text-left">Unit</th>
+                    <th class="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {% for m in material_list %}
+                  <tr class="border-t border-slate-200 hover:bg-slate-50">
+                    <td class="px-4 py-3 font-medium">{{ m.mat_partcode }}</td>
+                    <td class="px-4 py-3">{{ m.mat_partname }}</td>
+                    <td class="px-4 py-3">{{ m.mat_maker|default:"—" }}</td>
+                    <td class="px-4 py-3">{{ m.unit|default:"—" }}</td>
+
+                    <td class="px-4 py-3 text-right">
+                      <div class="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          class="edit-material px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                          data-id="{{ m.id }}"
+                          data-partcode="{{ m.mat_partcode|escapejs }}"
+                          data-partname="{{ m.mat_partname|escapejs }}"
+                          data-maker="{{ m.mat_maker|default_if_none:''|escapejs }}"
+                          data-unit="{{ m.unit|default_if_none:'pc'|escapejs }}"
+                        >
+                          Edit
+                        </button>
+
+                        <form method="post" class="inline"
+                              onsubmit="return confirm('Delete {{ m.mat_partcode }}? This cannot be undone.');">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="delete_material">
+                          <input type="hidden" name="mat_id" value="{{ m.id }}">
+                          <button type="submit"
+                                  class="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white">
+                            Delete
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="5" class="px-4 py-10 text-center text-slate-500">
+                      No materials found.
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+
+              </table>
+            </div>
+
+            {% if page_obj and page_obj.paginator.num_pages > 1 %}
+            <div class="px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+              <div class="text-sm text-slate-500">
+                Showing
+                <span class="font-medium text-slate-900">{{ page_obj.start_index }}</span>–
+                <span class="font-medium text-slate-900">{{ page_obj.end_index }}</span>
+                of
+                <span class="font-medium text-slate-900">{{ page_obj.paginator.count }}</span>
+              </div>
+
+              <div class="flex items-center gap-2 flex-wrap">
+                {% if page_obj.has_previous %}
+                  <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                     href="?tab=materials&mq={{ mq|urlencode }}&page={{ page_obj.previous_page_number }}">
+                    ← Prev
+                  </a>
+                {% else %}
+                  <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
+                    ← Prev
+                  </span>
+                {% endif %}
+
+                {% for p in page_obj.paginator.page_range %}
+                  {% if p == page_obj.number %}
+                    <span class="px-3 py-2 rounded-xl bg-blue-600 text-white text-sm">{{ p }}</span>
+                  {% elif p >= page_obj.number|add:-2 and p <= page_obj.number|add:2 %}
+                    <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                       href="?tab=materials&mq={{ mq|urlencode }}&page={{ p }}">{{ p }}</a>
+                  {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                  <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                     href="?tab=materials&mq={{ mq|urlencode }}&page={{ page_obj.next_page_number }}">
+                    Next →
+                  </a>
+                {% else %}
+                  <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
+                    Next →
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
+
+          </div>
+        </div>
+
+        <div class="lg:col-span-4">
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="text-base font-semibold text-slate-900">Add Material</h3>
+                <p class="text-sm text-slate-500">Insert directly into MaterialList.</p>
+              </div>
+
+              <button type="button" id="open-csv-upload"
+                class="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white whitespace-nowrap">
+                CSV Upload
+              </button>
+            </div>
+
+            <form method="post" class="mt-4 space-y-3">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="add_material">
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Part Code</label>
+                <input type="text" name="mat_partcode" required
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Part Name</label>
+                <input type="text" name="mat_partname"
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Maker</label>
+                <input type="text" name="mat_maker"
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Unit</label>
+                <select name="unit"
+                        class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="pc">pc</option>
+                  <option value="pcs">pcs</option>
+                  <option value="m">m</option>
+                  <option value="g">g</option>
+                  <option value="kg">kg</option>
+                </select>
+              </div>
+
+              <div class="pt-2">
+                <button type="submit"
+                        class="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </div>
+      {% endif %}
+
+      {% if tab == "users" %}
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <div class="lg:col-span-8">
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+
+            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-slate-900">User Management</h2>
+              </div>
+
+              <form method="get" class="flex items-center gap-2">
+                <input type="hidden" name="tab" value="users">
+                <input
+                  type="text"
+                  name="uq"
+                  value="{{ uq|default:'' }}"
+                  placeholder="Search employee_id / name / department..."
+                  class="h-10 w-80 max-w-full px-3 rounded-xl bg-white border border-slate-300 text-slate-900
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button class="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white" type="submit">
+                  Search
+                </button>
+              </form>
+            </div>
+
+            <div class="px-5 py-3 border-b border-slate-200 text-sm text-slate-600 flex items-center justify-between gap-4 flex-wrap">
+              <div>Total: <span class="font-semibold text-slate-900">{{ user_total }}</span></div>
+              {% if users_page %}
+              <div class="text-slate-500">
+                Page <span class="font-semibold text-slate-900">{{ users_page.number }}</span>
+                of <span class="font-semibold text-slate-900">{{ users_page.paginator.num_pages }}</span>
+              </div>
+              {% endif %}
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[1160px] text-sm">
+                <thead class="bg-slate-50 text-slate-700">
+                  <tr>
+                    <th class="px-4 py-3 text-left">Employee ID</th>
+                    <th class="px-4 py-3 text-left">Full Name</th>
+                    <th class="px-4 py-3 text-left">Department</th>
+                    <th class="px-4 py-3 text-left">Role</th>
+                    <th class="px-4 py-3 text-left">Status</th>
+                    <th class="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {% for u in users_page %}
+                  <tr class="border-t border-slate-200 hover:bg-slate-50">
+                    <td class="px-4 py-3 font-medium">{{ u.username }}</td>
+
+                    <td class="px-4 py-3">
+                      {% if u.employeeprofile %}
+                        {{ u.employeeprofile.full_name }}
+                      {% else %}
+                        <span class="text-slate-400 italic">—</span>
+                      {% endif %}
+                    </td>
+
+                    <td class="px-4 py-3">
+                      {% if u.employeeprofile %}
+                        {{ u.employeeprofile.department }}
+                      {% else %}
+                        <span class="text-slate-400 italic">—</span>
+                      {% endif %}
+                    </td>
+
+                    <td class="px-4 py-3">
+                      {% if u.is_superuser %}
+                        <span class="px-2 py-1 rounded-lg text-xs bg-violet-100 text-violet-700">Admin</span>
+                      {% else %}
+                        <span class="px-2 py-1 rounded-lg text-xs bg-blue-100 text-blue-700">Staff</span>
+                      {% endif %}
+                    </td>
+
+                    <td class="px-4 py-3">
+                      {% if u.is_active %}
+                        <span class="px-2 py-1 rounded-lg text-xs bg-emerald-100 text-emerald-700">Active</span>
+                      {% else %}
+                        <span class="px-2 py-1 rounded-lg text-xs bg-rose-100 text-rose-700">Disabled</span>
+                      {% endif %}
+                    </td>
+
+                    <td class="px-4 py-3 text-right">
+                      {% if u.id == request.user.id %}
+                        <span class="text-slate-400 text-sm">Current</span>
+                      {% else %}
+                        <div class="inline-flex items-center gap-2 flex-wrap justify-end">
+
+                          <form method="post" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="toggle_user_active">
+                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                            <button type="submit"
+                                    class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700">
+                              Toggle Active
+                            </button>
+                          </form>
+
+                          <form method="post" class="inline"
+                                onsubmit="return confirm(
+                                  'Change ADMIN role for {{ u.username }}?\n\n' +
+                                  '• Admin = full permissions\n' +
+                                  '• Staff = normal staff access\n\n' +
+                                  'Continue?'
+                                );">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="toggle_user_admin">
+                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                            <button type="submit"
+                                    class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white">
+                              {% if u.is_superuser %}Remove Admin{% else %}Make Admin{% endif %}
+                            </button>
+                          </form>
+
+                          <form method="post" class="inline"
+                                onsubmit="return confirm(
+                                  'REMOVE STAFF = DELETE ACCOUNT\n\n' +
+                                  'User: {{ u.username }}\n\n' +
+                                  'This will PERMANENTLY:\n' +
+                                  '• Delete this user from the database\n' +
+                                  '• Delete employee profile (if exists)\n' +
+                                  '• Remove access immediately\n\n' +
+                                  'THIS CANNOT BE UNDONE.\n\n' +
+                                  'Continue?'
+                                );">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="remove_staff">
+                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                            <button type="submit"
+                                    class="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white">
+                              Remove Staff
+                            </button>
+                          </form>
+
+                        </div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="6" class="px-4 py-10 text-center text-slate-500">
+                      No users found.
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+
+              </table>
+            </div>
+
+            {% if users_page and users_page.paginator.num_pages > 1 %}
+            <div class="px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+              <div class="text-sm text-slate-500">
+                Showing
+                <span class="font-medium text-slate-900">{{ users_page.start_index }}</span>–
+                <span class="font-medium text-slate-900">{{ users_page.end_index }}</span>
+                of
+                <span class="font-medium text-slate-900">{{ users_page.paginator.count }}</span>
+              </div>
+
+              <div class="flex items-center gap-2 flex-wrap">
+                {% if users_page.has_previous %}
+                  <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                     href="?tab=users&uq={{ uq|urlencode }}&upage={{ users_page.previous_page_number }}">
+                    ← Prev
+                  </a>
+                {% else %}
+                  <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
+                    ← Prev
+                  </span>
+                {% endif %}
+
+                {% for p in users_page.paginator.page_range %}
+                  {% if p == users_page.number %}
+                    <span class="px-3 py-2 rounded-xl bg-blue-600 text-white text-sm">{{ p }}</span>
+                  {% elif p >= users_page.number|add:-2 and p <= users_page.number|add:2 %}
+                    <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                       href="?tab=users&uq={{ uq|urlencode }}&upage={{ p }}">{{ p }}</a>
+                  {% endif %}
+                {% endfor %}
+
+                {% if users_page.has_next %}
+                  <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                     href="?tab=users&uq={{ uq|urlencode }}&upage={{ users_page.next_page_number }}">
+                    Next →
+                  </a>
+                {% else %}
+                  <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
+                    Next →
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
+
+          </div>
+        </div>
+
+        <div class="lg:col-span-4">
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
+            <div>
+              <h3 class="text-base font-semibold text-slate-900">Add Employee</h3>
+            </div>
+
+            <form method="post" class="mt-4 space-y-3">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="add_employee">
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Employee ID</label>
+                <input type="text" name="employee_id" required
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Full Name</label>
+                <input type="text" name="full_name" required
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Department</label>
+                <input type="text" name="department" required
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+
+              <div>
+                <label class="text-sm font-medium text-slate-700">Password</label>
+                <input type="password" name="password" required
+                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+
+              <div class="pt-2">
+                <button type="submit"
+                        class="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+                  Create Employee
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+
+      </div>
+
+      {% endif %}
+
+      {% if tab == "forecast" %}
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <div class="lg:col-span-8">
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+
+            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-slate-900">Forecast Records</h2>
+              </div>
+
+              <form method="get" class="flex items-center gap-2">
+                <input type="hidden" name="tab" value="forecast">
+                <input
+                  type="text"
+                  name="fq"
+                  value="{{ fq|default:'' }}"
+                  placeholder="Search part_number / part_name / customer..."
+                  class="h-10 w-80 max-w-full px-3 rounded-xl bg-white border border-slate-300 text-slate-900
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button class="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white" type="submit">
+                  Search
+                </button>
+              </form>
+            </div>
+
+            <div class="px-5 py-3 border-b border-slate-200 text-sm text-slate-600 flex items-center justify-between gap-4 flex-wrap">
+              <div>Total: <span class="font-semibold text-slate-900">{{ forecasts_total }}</span></div>
+              <a href="{% url 'admin:app_forecast_add' %}"
+                 class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm">
+                Add Forecast (Admin)
+              </a>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-700">
+                  <tr>
+                    <th class="px-4 py-3 text-left">Part Number</th>
+                    <th class="px-4 py-3 text-left">Part Name</th>
+                    <th class="px-4 py-3 text-left">Customer</th>
+                    <th class="px-4 py-3 text-left">Months</th>
+                    <th class="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {% for f in forecasts_list %}
+                  <tr class="border-t border-slate-200 hover:bg-slate-50">
+                    <td class="px-4 py-3 font-medium">{{ f.part_number }}</td>
+                    <td class="px-4 py-3">{{ f.part_name }}</td>
+                    <td class="px-4 py-3">
+                      {% if f.customer %}
+                        {{ f.customer.customer_name }}
+                      {% else %}
+                        <span class="text-slate-400 italic">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="px-4 py-3">{{ f.months_display }}</td>
+                    <td class="px-4 py-3 text-right">
+                      <button type="button"
+                              class="edit-forecast px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white"
+                              data-id="{{ f.id }}"
+                              data-part-number="{{ f.part_number|escapejs }}"
+                              data-part-name="{{ f.part_name|escapejs }}"
+                              data-customer-id="{{ f.customer_id|default:'' }}">
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="5" class="px-4 py-10 text-center text-slate-500">
+                      No forecasts found. <a href="{% url 'admin:app_forecast_add' %}" class="text-blue-600 hover:underline">Add one</a> or use the <a href="/api/docs" class="text-blue-600 hover:underline">API</a>.
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="lg:col-span-4">
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
+            <div>
+              <h3 class="text-base font-semibold text-slate-900">Forecast API</h3>
+              <p class="mt-2 text-sm text-slate-600">
+                Manage forecasts via REST API (POST, GET, PUT, DELETE) at <code class="text-xs bg-slate-100 px-1 rounded">/api/forecasts</code>
+              </p>
+              <div class="mt-3">
+                <a href="/api/docs" target="_blank"
+                   class="inline-block px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm">
+                  API Documentation →
+                </a>
+              </div>
+              <div class="mt-3">
+                <a href="{% url 'admin:app_forecast_changelist' %}"
+                   class="inline-block px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm">
+                  Manage in Django Admin
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {% endif %}
+
+    </div>
+  </div>
+
+  <div id="panel-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+  <div id="detail-panel"
+       class="fixed top-0 right-0 h-full w-full sm:w-[860px]
+              bg-white text-slate-900 border-l border-slate-200 z-50
+              translate-x-full transition-transform duration-200 flex flex-col">
+
+    <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+      <div class="font-semibold text-blue-700">Customer Details</div>
+      <button id="panel-close"
+              class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+        Close
+      </button>
+    </div>
+
+    <div id="panel-content" class="flex-1 overflow-y-auto p-4">
+      <div class="text-slate-500 text-sm">Select a customer and click View</div>
+    </div>
+  </div>
+
+  <div id="csv-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+  <div id="csv-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div>
+          <div class="font-semibold text-slate-900">Upload CSV</div>
+          <div class="text-xs text-slate-500">Masterlist</div>
+        </div>
+        <button type="button" id="csv-close"
+                class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+          Close
+        </button>
+      </div>
+
+      <form method="post"
+            action="{% url 'app:admin_csv_upload' %}"
+            enctype="multipart/form-data"
+            class="p-5 space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'app:admin_dashboard' %}?tab=materials&mq={{ mq|urlencode }}">
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">CSV File</label>
+          <input type="file" name="csv_file" required
+                 class="mt-2 w-full rounded-xl border border-slate-300 p-2 bg-white">
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <button type="button" id="csv-cancel"
+                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+            Upload
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="edit-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+  <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div>
+          <div class="font-semibold text-slate-900">Edit Material</div>
+          <div class="text-xs text-slate-500">Update fields then save</div>
+        </div>
+        <button type="button" id="edit-close"
+                class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+          Close
+        </button>
+      </div>
+
+      <form method="post" class="p-5 space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_material">
+        <input type="hidden" name="mat_id" id="edit-mat-id">
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Part Code</label>
+          <input type="text" name="mat_partcode" id="edit-partcode" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Part Name</label>
+          <input type="text" name="mat_partname" id="edit-partname"
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Maker</label>
+          <input type="text" name="mat_maker" id="edit-maker"
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Unit</label>
+          <select name="unit" id="edit-unit"
+                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="pc">pc</option>
+            <option value="pcs">pcs</option>
+            <option value="m">m</option>
+            <option value="g">g</option>
+            <option value="kg">kg</option>
+          </select>
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <button type="button" id="edit-cancel"
+                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="edit-forecast-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+  <div id="edit-forecast-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="px-5 py-4 border-b border-slate-200 flex justify-between items-center">
+        <div>
+          <div class="font-semibold text-slate-900">Edit Forecast</div>
+          <div class="text-xs text-slate-500">Update fields then save</div>
+        </div>
+        <button type="button" id="edit-forecast-close"
+                class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+          Close
+        </button>
+      </div>
+
+      <form method="post" class="p-5 space-y-4 overflow-y-auto flex-1">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_forecast">
+        <input type="hidden" name="forecast_id" id="edit-forecast-id">
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Part Number</label>
+          <input type="text" name="part_number" id="edit-forecast-part-number" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Part Name</label>
+          <input type="text" name="part_name" id="edit-forecast-part-name" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Customer</label>
+          <select name="customer_id" id="edit-forecast-customer"
+                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">— No customer —</option>
+            {% for c in all_customers %}
+            <option value="{{ c.id }}">{{ c.customer_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Monthly Forecasts (JSON)</label>
+          <textarea name="monthly_forecasts" id="edit-forecast-monthly" rows="6"
+                    placeholder='[{"date": "Jan-2026", "unit_price": 0.13, "quantity": 1000}]'
+                    class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+          <p class="mt-1 text-xs text-slate-500">Format: array of {date, unit_price, quantity}</p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="edit-forecast-cancel"
+                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const partMaps = [
+      {% for c in customers %}
+        {{ c.part_code_map_json|safe }},
+      {% endfor %}
+    ];
+
+    function updateRow(rowIdx, selectedPartCode, selectedTepId = null) {
+      const map = partMaps[rowIdx] || {};
+      const entry = map[selectedPartCode];
+
+      const tepDropdown = document.getElementById("tep-dd-" + rowIdx);
+      const matCell = document.getElementById("mat-" + rowIdx);
+      const viewLink = document.getElementById("view-" + rowIdx);
+
+      if (!tepDropdown || !matCell || !viewLink) return;
+
+      if (!entry) {
+        tepDropdown.innerHTML = "";
+        matCell.textContent = "0";
+        viewLink.classList.add("hidden");
+        return;
+      }
+
+      const teps = entry.teps || [];
+      tepDropdown.innerHTML = "";
+
+      teps.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.tep_id;
+        opt.textContent = t.tep_code;
+        tepDropdown.appendChild(opt);
+      });
+
+      let chosen = teps[0] || null;
+      if (selectedTepId) {
+        const found = teps.find(t => String(t.tep_id) === String(selectedTepId));
+        if (found) chosen = found;
+      }
+
+      if (!chosen) {
+        matCell.textContent = "0";
+        viewLink.classList.add("hidden");
+        return;
+      }
+
+      tepDropdown.value = chosen.tep_id;
+      matCell.textContent = chosen.materials_count ?? 0;
+
+      viewLink.dataset.tepId = chosen.tep_id;
+      viewLink.dataset.partCode = selectedPartCode;
+      viewLink.classList.remove("hidden");
+    }
+
+    document.querySelectorAll(".part-code-dropdown").forEach((dd) => {
+      dd.addEventListener("change", function () {
+        const rowIdx = Number(this.dataset.row);
+        updateRow(rowIdx, this.value);
+      });
+    });
+
+    document.querySelectorAll(".tep-code-dropdown").forEach((dd) => {
+      dd.addEventListener("change", function () {
+        const rowIdx = Number(this.dataset.row);
+        const partDd = document.querySelector(`.part-code-dropdown[data-row="${rowIdx}"]`);
+        const selectedPartCode = partDd ? partDd.value : "";
+        updateRow(rowIdx, selectedPartCode, this.value);
+      });
+    });
+
+    const panel = document.getElementById("detail-panel");
+    const backdrop = document.getElementById("panel-backdrop");
+    const panelClose = document.getElementById("panel-close");
+    const panelContent = document.getElementById("panel-content");
+
+    function openPanel() {
+      panel.classList.remove("translate-x-full");
+      backdrop.classList.remove("hidden");
+    }
+
+    function closePanel() {
+      panel.classList.add("translate-x-full");
+      backdrop.classList.add("hidden");
+    }
+
+    if (panelClose) panelClose.addEventListener("click", closePanel);
+    if (backdrop) backdrop.addEventListener("click", closePanel);
+
+    async function loadPanel(tepId) {
+      panelContent.innerHTML = `<div class="text-slate-500 text-sm">Loading…</div>`;
+      const url = `/panel/dashboard/?tep_id=${encodeURIComponent(tepId)}`;
+
+      const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      panelContent.innerHTML = await res.text();
+    }
+
+    document.querySelectorAll(".view-link").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.preventDefault();
+        const tepId = btn.dataset.tepId;
+        if (!tepId) return;
+        openPanel();
+        loadPanel(tepId);
+      });
+    });
+
+    const openCSV = document.getElementById("open-csv-upload");
+    const csvModal = document.getElementById("csv-modal");
+    const csvBackdrop = document.getElementById("csv-backdrop");
+    const csvClose = document.getElementById("csv-close");
+    const csvCancel = document.getElementById("csv-cancel");
+
+    function openCSVModal() {
+      if (!csvModal || !csvBackdrop) return;
+      csvModal.classList.remove("hidden");
+      csvBackdrop.classList.remove("hidden");
+    }
+
+    function closeCSVModal() {
+      if (!csvModal || !csvBackdrop) return;
+      csvModal.classList.add("hidden");
+      csvBackdrop.classList.add("hidden");
+    }
+
+    if (openCSV) openCSV.addEventListener("click", openCSVModal);
+    if (csvClose) csvClose.addEventListener("click", closeCSVModal);
+    if (csvCancel) csvCancel.addEventListener("click", closeCSVModal);
+    if (csvBackdrop) csvBackdrop.addEventListener("click", closeCSVModal);
+
+    const editBackdrop = document.getElementById("edit-backdrop");
+    const editModal = document.getElementById("edit-modal");
+    const editClose = document.getElementById("edit-close");
+    const editCancel = document.getElementById("edit-cancel");
+
+    const editMatId = document.getElementById("edit-mat-id");
+    const editPartcode = document.getElementById("edit-partcode");
+    const editPartname = document.getElementById("edit-partname");
+    const editMaker = document.getElementById("edit-maker");
+    const editUnit = document.getElementById("edit-unit");
+
+    function openEditModal(data) {
+      if (!editModal || !editBackdrop) return;
+
+      editMatId.value = data.id || "";
+      editPartcode.value = data.partcode || "";
+      editPartname.value = data.partname || "";
+      editMaker.value = data.maker || "";
+      editUnit.value = (data.unit || "pc").toLowerCase();
+
+      editModal.classList.remove("hidden");
+      editBackdrop.classList.remove("hidden");
+    }
+    function closeEditModal() {
+      if (!editModal || !editBackdrop) return;
+      editModal.classList.add("hidden");
+      editBackdrop.classList.add("hidden");
+    }
+
+    if (editClose) editClose.addEventListener("click", closeEditModal);
+    if (editCancel) editCancel.addEventListener("click", closeEditModal);
+    if (editBackdrop) editBackdrop.addEventListener("click", closeEditModal);
+
+    document.querySelectorAll(".edit-material").forEach(btn => {
+      btn.addEventListener("click", () => {
+        openEditModal({
+          id: btn.dataset.id,
+          partcode: btn.dataset.partcode,
+          partname: btn.dataset.partname,
+          maker: btn.dataset.maker,
+          unit: btn.dataset.unit
+        });
+      });
+    });
+
+    const FORECASTS_MONTHLY = {{ forecasts_monthly_json|safe }};
+    const editForecastBackdrop = document.getElementById("edit-forecast-backdrop");
+    const editForecastModal = document.getElementById("edit-forecast-modal");
+    const editForecastClose = document.getElementById("edit-forecast-close");
+    const editForecastCancel = document.getElementById("edit-forecast-cancel");
+
+    function openEditForecastModal(data) {
+      if (!editForecastModal || !editForecastBackdrop) return;
+      document.getElementById("edit-forecast-id").value = data.id || "";
+      document.getElementById("edit-forecast-part-number").value = data.partNumber || "";
+      document.getElementById("edit-forecast-part-name").value = data.partName || "";
+      document.getElementById("edit-forecast-customer").value = data.customerId || "";
+      const monthly = FORECASTS_MONTHLY && FORECASTS_MONTHLY[String(data.id)] !== undefined
+        ? FORECASTS_MONTHLY[String(data.id)]
+        : [];
+      document.getElementById("edit-forecast-monthly").value = JSON.stringify(monthly, null, 2);
+      editForecastModal.classList.remove("hidden");
+      editForecastBackdrop.classList.remove("hidden");
+    }
+    function closeEditForecastModal() {
+      if (!editForecastModal || !editForecastBackdrop) return;
+      editForecastModal.classList.add("hidden");
+      editForecastBackdrop.classList.add("hidden");
+    }
+    if (editForecastClose) editForecastClose.addEventListener("click", closeEditForecastModal);
+    if (editForecastCancel) editForecastCancel.addEventListener("click", closeEditForecastModal);
+    if (editForecastBackdrop) editForecastBackdrop.addEventListener("click", closeEditForecastModal);
+
+    document.querySelectorAll(".edit-forecast").forEach(btn => {
+      btn.addEventListener("click", () => {
+        openEditForecastModal({
+          id: btn.dataset.id,
+          partNumber: btn.dataset.partNumber,
+          partName: btn.dataset.partName,
+          customerId: btn.dataset.customerId
+        });
+      });
+    });
+
+    const MASTER_MAP = {{ master_map_json|safe }};
+
+    const mpCode = document.getElementById("mat-partcode-input");
+    const mpName = document.getElementById("mat-partname");
+    const mpMaker = document.getElementById("mat-maker");
+    const mpUnit = document.getElementById("mat-unit");
+    const mpHint = document.getElementById("mat-master-hint");
+
+    const dimQty = document.getElementById("dim-qty");
+    const lossPct = document.getElementById("loss-percent");
+    const totalField = document.getElementById("total-field");
+
+    function recalcTotal() {
+      const d = parseFloat(dimQty?.value || "");
+      const l = parseFloat(lossPct?.value || "10");
+
+      if (isNaN(d)) {
+        if (totalField) totalField.value = "";
+        return;
+      }
+      const loss = isNaN(l) ? 10 : l;
+      const total = d * (1 + (loss / 100));
+      if (totalField) totalField.value = total.toFixed(4);
+    }
+
+    function fillFromMaster(code) {
+      const key = (code || "").trim();
+      const hit = MASTER_MAP[key];
+
+      if (!hit) {
+        if (mpName) mpName.value = "";
+        if (mpMaker) mpMaker.value = "";
+        if (mpUnit) mpUnit.value = "";
+        if (mpHint) mpHint.textContent = "Not found in master list.";
+        return;
+      }
+
+      if (mpName) mpName.value = hit.mat_partname || "";
+      if (mpMaker) mpMaker.value = hit.mat_maker || "";
+      if (mpUnit) mpUnit.value = hit.unit || "";
+
+      if (mpHint) mpHint.textContent = "Found in master list ✅";
+    }
+
+    if (mpCode) {
+      mpCode.addEventListener("input", () => {
+        fillFromMaster(mpCode.value);
+      });
+      mpCode.addEventListener("change", () => {
+        fillFromMaster(mpCode.value);
+      });
+    }
+
+    if (dimQty) dimQty.addEventListener("input", recalcTotal);
+    if (lossPct) lossPct.addEventListener("input", recalcTotal);
+
+    recalcTotal();
+  </script>
+
+</body>
+</html>

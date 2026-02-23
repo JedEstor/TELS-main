@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Employee Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-slate-900">
+
+  <div class="w-full max-w-md bg-slate-800 rounded-2xl shadow-xl p-8">
+    
+    <h2 class="text-2xl font-bold text-center text-blue-400 mb-6">
+      Login
+    </h2>
+
+    {% if error %}
+      <div class="mb-4 rounded-lg bg-red-900/40 border border-red-500 text-red-300 px-4 py-2 text-sm">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-1">
+          Employee ID
+        </label>
+        <input
+          type="text"
+          name="employee_id"
+          required
+          class="w-full rounded-lg bg-slate-700 border border-slate-600 px-4 py-2 text-slate-100
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-1">
+          Password
+        </label>
+        <input
+          type="password"
+          name="password"
+          required
+          class="w-full rounded-lg bg-slate-700 border border-slate-600 px-4 py-2 text-slate-100
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+      </div>
+
+      <button
+        type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold
+               py-2.5 rounded-lg transition duration-200 shadow-md"
+      >
+        Login
+      </button>
+    </form>
+    <p class="mt-6 text-center text-sm text-slate-400">
+      No account? Please contact your administrator/HR.
+    </p>
+
+  </div>
+
+</body>
+</html>

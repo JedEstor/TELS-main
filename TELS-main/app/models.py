@@ -1,0 +1,235 @@
+
+#from django.db import models
+
+# Create your models here.
+
+   
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.conf import settings
+from django.contrib.auth.models import User
+
+class Customer(models.Model):
+    customer_name = models.CharField(max_length=120, unique=True)
+
+    parts = models.JSONField(default=list, blank=True)
+
+    def __str__(self):
+        return self.customer_name
+
+    def clean(self):
+        """
+        Optional validation to keep parts JSON clean.
+        """
+        if self.parts in (None, ""):
+            self.parts = []
+
+        if not isinstance(self.parts, list):
+            raise ValidationError({"parts": "parts must be a LIST of objects."})
+
+        for i, item in enumerate(self.parts):
+            if not isinstance(item, dict):
+                raise ValidationError({"parts": f"parts[{i}] must be an object/dict."})
+
+            if "Partcode" not in item or "Partname" not in item:
+                raise ValidationError({"parts": f"parts[{i}] must contain Partcode and Partname."})
+
+            if not str(item["Partcode"]).strip():
+                raise ValidationError({"parts": f"parts[{i}].Partcode cannot be empty."})
+
+            if not str(item["Partname"]).strip():
+                raise ValidationError({"parts": f"parts[{i}].Partname cannot be empty."})
+
+
+class TEPCode(models.Model):
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="tep_codes",
+    )
+
+    part_code = models.CharField(max_length=60)
+
+    tep_code = models.CharField(max_length=60)
+
+    class Meta:
+        unique_together = ("customer", "part_code", "tep_code")
+
+    def __str__(self):
+        return f"{self.customer.customer_name} | {self.part_code} | {self.tep_code}"
+
+
+class Material(models.Model):
+    UNIT_CHOICES = [
+        ("pc", "pc"),
+        ("pcs", "pcs"),
+        ("m", "m"),
+        ("g", "g"),
+        ("kg", "kg"),
+    ]
+
+    tep_code = models.ForeignKey(
+        TEPCode,
+        on_delete=models.CASCADE,
+        related_name="materials",
+    )
+
+    mat_partcode = models.CharField(max_length=80)
+    mat_partname = models.CharField(max_length=160)
+    mat_maker = models.CharField(max_length=120)
+
+    unit = models.CharField(max_length=10, choices=UNIT_CHOICES)
+    dim_qty = models.FloatField()
+    loss_percent = models.FloatField(default=10.0)
+    total = models.FloatField()
+
+    def __str__(self):
+        return f"{self.mat_partname} ({self.mat_partcode})"
+
+class MaterialList(models.Model):
+    UNIT_CHOICES = [
+        ("pc", "pc"),
+        ("pcs", "pcs"),
+        ("m", "m"),
+        ("g", "g"),
+        ("kg", "kg"),
+    ]
+
+    mat_partcode = models.CharField(max_length=80, unique=True)
+    mat_partname = models.CharField(max_length=160)
+    mat_maker = models.CharField(max_length=120)
+    unit = models.CharField(max_length=10, choices=UNIT_CHOICES)
+
+    def __str__(self):
+        return f"{self.mat_partname} ({self.mat_partcode})"
+
+
+class CustomerCSV(models.Model):
+    csv_file = models.FileField(upload_to="customer_csvs/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"CustomerCSV {self.id}"
+
+
+class EmployeeProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employeeprofile")
+    employee_id = models.CharField(max_length=30, unique=True)
+    full_name = models.CharField(max_length=150)
+    department = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.employee_id} - {self.full_name}"
+
+
+class Forecast(models.Model):
+    """
+    Forecast for a part: part_number, part_name, and monthly forecasts.
+    Optionally linked to a Customer.
+    """
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="forecasts",
+        null=True,
+        blank=True,
+    )
+    part_number = models.CharField(max_length=80)
+    part_name = models.CharField(max_length=200)
+    monthly_forecasts = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of {date, unit_price, quantity} per month, e.g. [{'date': 'Jan-2026', 'unit_price': 0.13, 'quantity': 1000}]",
+    )
+
+    class Meta:
+        ordering = ["part_number"]
+
+    def __str__(self):
+        return f"{self.part_number} - {self.part_name}"
+
+    @property
+    def monthly_count(self):
+        return len(self.monthly_forecasts or [])
+
+    @property
+    def months_display(self):
+        """Return month names (e.g. January, February) from monthly_forecasts dates."""
+        months = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ]
+        abbr = ["jan", "feb", "mar", "apr", "may", "jun",
+                "jul", "aug", "sep", "oct", "nov", "dec"]
+        items = self.monthly_forecasts or []
+        names = []
+        seen = set()
+        for m in items:
+            if isinstance(m, dict):
+                d = str(m.get("date", "")).strip()
+                if not d:
+                    continue
+                s_lower = d.lower()
+                found = None
+                for i, a in enumerate(abbr):
+                    if s_lower.startswith(a) or s_lower == a:
+                        found = months[i]
+                        break
+                if found is None:
+                    try:
+                        n = int(d.split("-")[0] if "-" in d else d.split("/")[0] if "/" in d else d)
+                        found = months[n - 1] if 1 <= n <= 12 else d
+                    except (ValueError, IndexError):
+                        found = d
+                if found and found not in seen:
+                    seen.add(found)
+                    names.append(found)
+        return ", ".join(names) if names else "—"
+
+    @property
+    def base_unit_price(self) -> float:
+        """Unit price (assumes same price for all months, uses first entry)."""
+        for m in (self.monthly_forecasts or []):
+            if isinstance(m, dict):
+                try:
+                    return float(m.get("unit_price", 0) or 0)
+                except (TypeError, ValueError):
+                    continue
+        return 0.0
+
+    @property
+    def latest_quantity(self) -> float:
+        """Quantity from the last monthly entry (most recent month in the list)."""
+        items = [m for m in (self.monthly_forecasts or []) if isinstance(m, dict)]
+        if not items:
+            return 0.0
+        try:
+            return float(items[-1].get("quantity", 0) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    @property
+    def total_quantity(self) -> float:
+        """Sum of quantities across all months."""
+        total = 0.0
+        for m in (self.monthly_forecasts or []):
+            if isinstance(m, dict):
+                try:
+                    total += float(m.get("quantity", 0) or 0)
+                except (TypeError, ValueError):
+                    continue
+        return total
+
+    @property
+    def total_amount(self) -> float:
+        """Sum over all months of (unit_price * quantity)."""
+        total = 0.0
+        for m in (self.monthly_forecasts or []):
+            if isinstance(m, dict):
+                try:
+                    price = float(m.get("unit_price", 0) or 0)
+                    qty = float(m.get("quantity", 0) or 0)
+                    total += price * qty
+                except (TypeError, ValueError):
+                    continue
+        return total
