@@ -1,3 +1,4 @@
+
 # views.py
 from django.views.decorators.cache import never_cache
 
@@ -157,6 +158,93 @@ def _allocate_material_name(tep, base_name: str, exclude_partcode: str = "") -> 
         return f"{base} 2"
 
     return f"{base} {max(numbers) + 1}"
+
+
+def _month_index_from_string(val: str) -> int | None:
+    """
+    Convert various month representations (Jan-2026, JAN, January, 1, 01/2026) to 1-12.
+    Returns None if it cannot be parsed.
+    """
+    if not val:
+        return None
+    s = str(val).strip()
+    if not s:
+        return None
+
+    months = [
+        "january", "february", "march", "april", "may", "june",
+        "july", "august", "september", "october", "november", "december",
+    ]
+    abbr = ["jan", "feb", "mar", "apr", "may", "jun",
+            "jul", "aug", "sep", "oct", "nov", "dec"]
+
+    lower = s.lower()
+    for i, a in enumerate(abbr):
+        if lower.startswith(a) or lower == a:
+            return i + 1
+
+    for i, name in enumerate(months):
+        if lower.startswith(name) or lower == name:
+            return i + 1
+
+    try:
+        head = s.split("-")[0] if "-" in s else s.split("/")[0] if "/" in s else s
+        n = int(head)
+        if 1 <= n <= 12:
+            return n
+    except (ValueError, IndexError):
+        return None
+
+    return None
+
+
+def _range_totals(monthly_rows, from_idx: int, to_idx: int) -> tuple[float, float]:
+    """
+    Compute (total_quantity, total_amount) across monthly rows limited to
+    months between from_idx and to_idx inclusive, where indexes are 1-12.
+    """
+    total_qty = 0.0
+    total_amt = 0.0
+    if from_idx is None or to_idx is None:
+        return total_qty, total_amt
+
+    for m in monthly_rows or []:
+        if not isinstance(m, dict):
+            continue
+        mi = _month_index_from_string(m.get("date", ""))
+        if mi is None:
+            continue
+        if from_idx <= mi <= to_idx:
+            try:
+                qty = float(m.get("quantity", 0) or 0)
+                price = float(m.get("unit_price", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            total_qty += qty
+            total_amt += price * qty
+    return total_qty, total_amt
+
+
+def _months_label_from_rows(monthly_rows):
+    """Return comma-separated month names derived from a list of {date,...} dicts."""
+    month_names_full = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    ]
+    seen = set()
+    names = []
+    for m in monthly_rows or []:
+        if not isinstance(m, dict):
+            continue
+        idx = _month_index_from_string(m.get("date", ""))
+        if idx is not None and 1 <= idx <= 12:
+            name = month_names_full[idx - 1]
+        else:
+            name = str(m.get("date", "")).strip()
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    return ", ".join(names) if names else "—"
 
 
 def build_customer_table(q: str):
@@ -488,6 +576,45 @@ def admin_dashboard(request):
 
             return redirect(reverse("app:admin_dashboard") + "?tab=forecast" + ("&fq=" + request.GET.get("fq", "") if request.GET.get("fq") else ""))
 
+        if action in ("save_previous_forecast", "save_actual_delivered"):
+            forecast_id = (request.POST.get("forecast_id") or "").strip()
+            monthly_raw = (request.POST.get("monthly_forecasts") or "").strip()
+
+            if not forecast_id:
+                messages.error(request, "Select a forecast / part first.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
+
+            try:
+                forecast = Forecast.objects.get(id=forecast_id)
+            except Forecast.DoesNotExist:
+                messages.error(request, "Forecast not found.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
+
+            monthly = []
+            if monthly_raw:
+                try:
+                    data = json.loads(monthly_raw)
+                except json.JSONDecodeError as e:
+                    messages.error(request, f"Invalid JSON: {e}")
+                    return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
+
+                if not isinstance(data, list):
+                    messages.error(request, "Monthly data must be a JSON array.")
+                    return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
+
+                monthly = data
+
+            if action == "save_previous_forecast":
+                forecast.previous_forecasts = monthly
+                field_label = "Previous forecast"
+            else:
+                forecast.actual_delivered = monthly
+                field_label = "Actual delivered"
+
+            forecast.save()
+            messages.success(request, f"{field_label} saved for {forecast.part_number}.")
+            return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
+
         if action == "delete_material":
             mat_id = (request.POST.get("mat_id") or "").strip()
 
@@ -677,6 +804,9 @@ def admin_dashboard(request):
     user_total = users_qs.count()
 
     fq = (request.GET.get("fq") or "").strip()
+    forecast_from_month = (request.GET.get("from_month") or "").strip()
+    forecast_to_month = (request.GET.get("to_month") or "").strip()
+
     forecasts_qs = Forecast.objects.select_related("customer").order_by("part_number")
     if fq:
         forecasts_qs = forecasts_qs.filter(
@@ -686,6 +816,67 @@ def admin_dashboard(request):
         )
     forecasts_list = list(forecasts_qs)
     forecasts_total = len(forecasts_list)
+
+    previous_forecasts_list = []
+    for f in forecasts_list:
+        rows = f.previous_forecasts or []
+        if not rows:
+            continue
+        unit_price = 0.0
+        latest_qty = 0.0
+        total_qty_prev = 0.0
+        total_amt_prev = 0.0
+        for idx, m in enumerate(rows):
+            if not isinstance(m, dict):
+                continue
+            try:
+                price = float(m.get("unit_price", 0) or 0)
+                qty = float(m.get("quantity", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            if unit_price == 0.0:
+                unit_price = price
+            latest_qty = qty
+            total_qty_prev += qty
+            total_amt_prev += price * qty
+        previous_forecasts_list.append(
+            {
+                "part_number": f.part_number,
+                "part_name": f.part_name,
+                "months": _months_label_from_rows(rows),
+                "unit_price": unit_price,
+                "quantity": latest_qty,
+                "total_quantity": total_qty_prev,
+                "total_amount": total_amt_prev,
+            }
+        )
+
+    month_names_full = [
+        "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+        "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+    ]
+    forecast_selected_range_label = None
+    forecast_selected_total_qty = None
+    forecast_selected_total_amount = None
+
+    from_idx = _month_index_from_string(forecast_from_month) if forecast_from_month else None
+    to_idx = _month_index_from_string(forecast_to_month) if forecast_to_month else None
+    if from_idx is not None and to_idx is not None:
+        if from_idx > to_idx:
+            from_idx, to_idx = to_idx, from_idx
+        forecast_selected_range_label = f"{month_names_full[from_idx - 1]} to {month_names_full[to_idx - 1]}"
+
+        total_qty_all = 0.0
+        total_amt_all = 0.0
+        for f in forecasts_list:
+            qty, amt = _range_totals(f.monthly_forecasts, from_idx, to_idx)
+            setattr(f, "selected_range_qty", qty)
+            setattr(f, "selected_range_amount", amt)
+            total_qty_all += qty
+            total_amt_all += amt
+        forecast_selected_total_qty = total_qty_all
+        forecast_selected_total_amount = total_amt_all
+
     forecasts_monthly_json = json.dumps(
         {str(f.id): (f.monthly_forecasts or []) for f in forecasts_list},
         default=str,
@@ -740,6 +931,16 @@ def admin_dashboard(request):
         "forecasts_list": forecasts_list,
         "forecasts_total": forecasts_total,
         "forecasts_monthly_json": forecasts_monthly_json,
+        "previous_forecasts_list": previous_forecasts_list,
+        "forecast_month_choices": [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ],
+        "forecast_from_month": forecast_from_month,
+        "forecast_to_month": forecast_to_month,
+        "forecast_selected_range_label": forecast_selected_range_label,
+        "forecast_selected_total_qty": forecast_selected_total_qty,
+        "forecast_selected_total_amount": forecast_selected_total_amount,
         "all_customers": Customer.objects.all().order_by("customer_name"),
         "forecast_customers": Customer.objects.filter(forecasts__isnull=False).distinct().order_by("customer_name"),
 
