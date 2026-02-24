@@ -1,3 +1,4 @@
+
 from ninja import NinjaAPI, File
 from ninja.files import UploadedFile
 from django.http import JsonResponse
@@ -8,7 +9,18 @@ from django.db.models import Prefetch
 import csv, io, re
 from .models import Customer, TEPCode, Material, CustomerCSV, MaterialList, Forecast
 #new, naglagay nung MaterialList sa itaas na import
-from .schemas import (CustomerIn, CustomerOut, CustomerFullOut, TEPCodeIn, TEPCodeOut, MaterialIn, MaterialOut, MaterialListIn, ForecastIn)
+from .schemas import (
+    CustomerIn,
+    CustomerOut,
+    CustomerFullOut,
+    TEPCodeIn,
+    TEPCodeOut,
+    MaterialIn,
+    MaterialOut,
+    MaterialListIn,
+    ForecastIn,
+    ForecastHistoryIn,
+)
 
 
 api = NinjaAPI(title="Sales API")
@@ -761,6 +773,22 @@ def _forecast_to_output(forecast):
     }
 
 
+def _normalize_monthly_payload(items):
+    """
+    Convert a list of MonthlyForecastIn (pydantic schemas) to plain dicts that we store in JSONFields.
+    """
+    monthly = []
+    for m in (items or []):
+        monthly.append(
+            {
+                "date": m.date,
+                "unit_price": float(m.unit_price),
+                "quantity": float(m.quantity),
+            }
+        )
+    return monthly
+
+
 @api.post("/forecasts", tags=["FORECAST"])
 def create_forecast(request, payload: ForecastIn):
     """Create a new forecast."""
@@ -773,18 +801,14 @@ def create_forecast(request, payload: ForecastIn):
         return jresponse({"error": "part_name is required"}, status=400)
 
     customer = None
-    if payload.customer_id:
-        customer = Customer.objects.filter(id=payload.customer_id).first()
-        if not customer:
-            return jresponse({"error": f"Customer id {payload.customer_id} not found"}, status=404)
+    if payload.customer_name:
+        cname = (payload.customer_name or "").strip()
+        if cname:
+            customer = Customer.objects.filter(customer_name__iexact=cname).first()
+            if not customer:
+                return jresponse({"error": f"Customer '{cname}' not found"}, status=404)
 
-    monthly = []
-    for m in (payload.monthly_forecasts or []):
-        monthly.append({
-            "date": m.date,
-            "unit_price": float(m.unit_price),
-            "quantity": float(m.quantity),
-        })
+    monthly = _normalize_monthly_payload(payload.monthly_forecasts)
 
     forecast = Forecast.objects.create(
         customer=customer,
@@ -827,11 +851,25 @@ def get_forecasts_by_customer(
     if from_idx is not None and to_idx is not None and from_idx > to_idx:
         from_idx, to_idx = to_idx, from_idx
 
-    forecasts = Forecast.objects.filter(customer=customer).select_related("customer").order_by("part_number")
+    selected_months_label = None
+    if from_idx is not None and to_idx is not None:
+        month_names = [
+            "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+            "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+        ]
+        selected_months_label = f"{month_names[from_idx - 1]} to {month_names[to_idx - 1]}"
+
+    forecasts = (
+        Forecast.objects.filter(customer=customer)
+        .select_related("customer")
+        .order_by("part_number")
+    )
     result = []
     for f in forecasts:
         out = _forecast_to_output(f)
         out["id"] = f.id
+        if selected_months_label:
+            out["selected_months"] = selected_months_label
         if from_idx is not None and to_idx is not None:
             total_range = 0.0
             for m in (f.monthly_forecasts or []):
@@ -848,10 +886,13 @@ def get_forecasts_by_customer(
     return jresponse(result)
 
 
-@api.put("/forecasts/{forecast_id}", tags=["FORECAST"])
-def update_forecast(request, forecast_id: int, payload: ForecastIn):
-    """Update an existing forecast."""
-    forecast = get_object_or_404(Forecast.objects.select_related("customer"), id=forecast_id)
+@api.put("/forecasts/{part_number}", tags=["FORECAST"])
+def update_forecast(request, part_number: str, payload: ForecastIn):
+    """Update an existing forecast by part_number."""
+    forecast = get_object_or_404(
+        Forecast.objects.select_related("customer"),
+        part_number=part_number,
+    )
 
     part_number = (payload.part_number or "").strip()
     part_name = (payload.part_name or "").strip()
@@ -861,19 +902,17 @@ def update_forecast(request, forecast_id: int, payload: ForecastIn):
     if not part_name:
         return jresponse({"error": "part_name is required"}, status=400)
 
-    customer = None
-    if payload.customer_id is not None:
-        customer = Customer.objects.filter(id=payload.customer_id).first()
-        if payload.customer_id and not customer:
-            return jresponse({"error": f"Customer id {payload.customer_id} not found"}, status=404)
+    customer = forecast.customer
+    if payload.customer_name is not None:
+        cname = (payload.customer_name or "").strip()
+        if cname == "":
+            customer = None
+        else:
+            customer = Customer.objects.filter(customer_name__iexact=cname).first()
+            if not customer:
+                return jresponse({"error": f"Customer '{cname}' not found"}, status=404)
 
-    monthly = []
-    for m in (payload.monthly_forecasts or []):
-        monthly.append({
-            "date": m.date,
-            "unit_price": float(m.unit_price),
-            "quantity": float(m.quantity),
-        })
+    monthly = _normalize_monthly_payload(payload.monthly_forecasts)
 
     forecast.customer = customer
     forecast.part_number = part_number
@@ -886,10 +925,44 @@ def update_forecast(request, forecast_id: int, payload: ForecastIn):
     return jresponse(out)
 
 
-@api.delete("/forecasts/{forecast_id}", tags=["FORECAST"])
-def delete_forecast(request, forecast_id: int):
-    """Delete a forecast."""
-    forecast = get_object_or_404(Forecast, id=forecast_id)
+@api.post("/forecasts/{part_number}/previous", tags=["FORECAST"])
+def create_previous_forecast(request, part_number: str, payload: ForecastHistoryIn):
+    """
+    Create or replace the Previous Forecast data for a given part_number.
+    Stores rows on the Forecast.previous_forecasts JSON field.
+    """
+    forecast = get_object_or_404(Forecast, part_number=part_number)
+    monthly = _normalize_monthly_payload(payload.monthly_forecasts)
+    forecast.previous_forecasts = monthly
+    forecast.save(update_fields=["previous_forecasts"])
+
+    out = _forecast_to_output(forecast)
+    out["id"] = forecast.id
+    out["previous_forecasts"] = monthly
+    return jresponse(out, status=200)
+
+
+@api.post("/forecasts/{part_number}/actual-delivered", tags=["FORECAST"])
+def create_actual_delivered(request, part_number: str, payload: ForecastHistoryIn):
+    """
+    Create or replace the Actual Delivered data for a given part_number.
+    Stores rows on the Forecast.actual_delivered JSON field.
+    """
+    forecast = get_object_or_404(Forecast, part_number=part_number)
+    monthly = _normalize_monthly_payload(payload.monthly_forecasts)
+    forecast.actual_delivered = monthly
+    forecast.save(update_fields=["actual_delivered"])
+
+    out = _forecast_to_output(forecast)
+    out["id"] = forecast.id
+    out["actual_delivered"] = monthly
+    return jresponse(out, status=200)
+
+
+@api.delete("/forecasts/{part_number}", tags=["FORECAST"])
+def delete_forecast(request, part_number: str):
+    """Delete a forecast by part_number."""
+    forecast = get_object_or_404(Forecast, part_number=part_number)
     forecast.delete()
     return jresponse({"message": "Forecast deleted successfully"}, status=200)
 
@@ -921,5 +994,3 @@ def create_master_material(request, payload: MaterialListIn):
         },
         status=201
     )
-
-
