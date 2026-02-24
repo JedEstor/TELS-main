@@ -284,8 +284,75 @@ def _date_to_month_name(val):
     return s
 
 
+class ForecastAdminForm(forms.ModelForm):
+    monthly_forecasts_json = forms.CharField(
+        required=False,
+        label="Monthly forecasts",
+        widget=forms.Textarea(attrs={"rows": 10, "style": "font-family: monospace;"}),
+        help_text=(
+            'List of {"date", "unit_price", "quantity"} per month, '
+            'e.g. [{"date": "JANUARY", "unit_price": 0.04, "quantity": 10000.0}]'
+        ),
+    )
+
+    class Meta:
+        model = Forecast
+        fields = ("customer", "part_number", "part_name")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.instance and self.instance.pk:
+            initial_data = self.instance.monthly_forecasts or []
+        else:
+            initial_data = [
+                {"date": "JANUARY", "unit_price": 0.04, "quantity": 10000.0}
+            ]
+
+        self.fields["monthly_forecasts_json"].initial = json.dumps(
+            initial_data,
+            indent=2,
+            ensure_ascii=False,
+        )
+
+    def clean_monthly_forecasts_json(self):
+        raw = (self.cleaned_data.get("monthly_forecasts_json") or "").strip()
+        if raw == "":
+            return []
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise ValidationError(f"Invalid JSON: {e}")
+
+        if not isinstance(data, list):
+            raise ValidationError("Monthly forecasts must be a JSON ARRAY (list).")
+
+        for i, item in enumerate(data):
+            if not isinstance(item, dict):
+                raise ValidationError(f"Item #{i+1} must be an object/dict.")
+
+            missing = [k for k in ("date", "unit_price", "quantity") if k not in item]
+            if missing:
+                raise ValidationError(
+                    f"Item #{i+1} missing keys: {', '.join(missing)}"
+                )
+
+            item["date"] = str(item.get("date", "")).strip()
+            try:
+                item["unit_price"] = float(item.get("unit_price", 0) or 0)
+                item["quantity"] = float(item.get("quantity", 0) or 0)
+            except (TypeError, ValueError):
+                raise ValidationError(
+                    f"Item #{i+1}: unit_price and quantity must be numeric."
+                )
+
+        return data
+
+
 @admin.register(Forecast)
 class ForecastAdmin(admin.ModelAdmin):
+    form = ForecastAdminForm
     list_display = (
         "part_number",
         "part_name",
@@ -299,6 +366,13 @@ class ForecastAdmin(admin.ModelAdmin):
     search_fields = ("part_number", "part_name", "customer__customer_name")
     list_filter = ("customer",)
     list_select_related = ("customer",)
+
+    fields = (
+        "customer",
+        "part_number",
+        "part_name",
+        "monthly_forecasts_json",
+    )
 
     def months_display(self, obj):
         items = obj.monthly_forecasts or []
@@ -329,4 +403,9 @@ class ForecastAdmin(admin.ModelAdmin):
     def total_amount_display(self, obj):
         return obj.total_amount
     total_amount_display.short_description = "Total amount"
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        obj.monthly_forecasts = form.cleaned_data.get("monthly_forecasts_json", [])
+        obj.save()
     
