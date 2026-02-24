@@ -83,7 +83,15 @@ class ForecastIn(Schema):
     part_number: str
     part_name: str
     monthly_forecasts: Optional[List[MonthlyForecastIn]] = None
-    customer_id: Optional[int] = None
+    customer_name: Optional[str] = None
+
+
+class ForecastHistoryIn(Schema):
+    """
+    Payload for Previous Forecast / Actual Delivered.
+    Only carries the monthly rows; the target forecast is selected by part_number in the path.
+    """
+    monthly_forecasts: Optional[List[MonthlyForecastIn]] = None
 
 
 class MonthlyForecastOut(Schema):
