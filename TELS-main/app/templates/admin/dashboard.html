@@ -62,31 +62,41 @@
   <div class="bg-white">
     <div class="max-w-7xl mx-auto p-6 space-y-6">
 
-      <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-        <a href="?tab=customers&q={{ q|urlencode }}"
-           class="px-4 py-2 rounded-xl border text-sm
-           {% if tab == 'customers' %}bg-blue-600 border-blue-600 text-white{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
-          Customer Records
-        </a>
+      <div class="flex flex-col md:flex-row gap-6">
 
-        <a href="?tab=materials&mq={{ mq|urlencode }}"
-           class="px-4 py-2 rounded-xl border text-sm
-           {% if tab == 'materials' %}bg-blue-600 border-blue-600 text-white{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
-          Material List
-        </a>
+        <div class="md:w-56 lg:w-64 shrink-0">
+          <nav class="bg-slate-900 text-slate-100 rounded-2xl p-3 space-y-1 shadow-sm">
+            <a href="?tab=customers&q={{ q|urlencode }}"
+               class="group flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium
+               {% if tab == 'customers' %}bg-slate-800 text-white{% else %}text-slate-200 hover:bg-slate-800 hover:text-white{% endif %}">
+              <span>Customer Records</span>
+              <span class="text-xs text-slate-400 group-hover:text-slate-200">›</span>
+            </a>
 
-        <a href="?tab=users&uq={{ uq|urlencode }}"
-           class="px-4 py-2 rounded-xl border text-sm
-           {% if tab == 'users' %}bg-blue-600 border-blue-600 text-white{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
-          Users
-        </a>
+            <a href="?tab=materials&mq={{ mq|urlencode }}"
+               class="group flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium
+               {% if tab == 'materials' %}bg-slate-800 text-white{% else %}text-slate-200 hover:bg-slate-800 hover:text-white{% endif %}">
+              <span>Material List</span>
+              <span class="text-xs text-slate-400 group-hover:text-slate-200">›</span>
+            </a>
 
-        <a href="?tab=forecast&fq={{ fq|urlencode }}"
-           class="px-4 py-2 rounded-xl border text-sm
-           {% if tab == 'forecast' %}bg-blue-600 border-blue-600 text-white{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
-          Forecast
-        </a>
-      </div>
+            <a href="?tab=users&uq={{ uq|urlencode }}"
+               class="group flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium
+               {% if tab == 'users' %}bg-slate-800 text-white{% else %}text-slate-200 hover:bg-slate-800 hover:text-white{% endif %}">
+              <span>Users</span>
+              <span class="text-xs text-slate-400 group-hover:text-slate-200">›</span>
+            </a>
+
+            <a href="?tab=forecast&fq={{ fq|urlencode }}&from_month={{ forecast_from_month|urlencode }}&to_month={{ forecast_to_month|urlencode }}"
+               class="group flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium
+               {% if tab == 'forecast' %}bg-slate-800 text-white{% else %}text-slate-200 hover:bg-slate-800 hover:text-white{% endif %}">
+              <span>Forecast</span>
+              <span class="text-xs text-slate-400 group-hover:text-slate-200">›</span>
+            </a>
+          </nav>
+        </div>
+
+        <div class="flex-1 space-y-6">
 
       {% if messages %}
         <div class="space-y-2">
@@ -784,32 +794,82 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        <div class="lg:col-span-8">
+        <div class="lg:col-span-8 space-y-6">
           <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
-            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
+            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div class="space-y-2">
                 <h2 class="text-lg font-semibold text-slate-900">Forecast Records</h2>
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" id="open-previous-forecast"
+                          class="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 hover:bg-slate-100">
+                    Previous Forecast
+                  </button>
+                  <button type="button" id="open-actual-delivered"
+                          class="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 hover:bg-slate-100">
+                    Actual Delivered
+                  </button>
+                </div>
               </div>
 
-              <form method="get" class="flex items-center gap-2">
+              <form method="get" class="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="tab" value="forecast">
                 <input
                   type="text"
                   name="fq"
                   value="{{ fq|default:'' }}"
                   placeholder="Search part_number / part_name / customer..."
-                  class="h-10 w-80 max-w-full px-3 rounded-xl bg-white border border-slate-300 text-slate-900
+                  class="h-10 w-44 lg:w-64 max-w-full px-3 rounded-xl bg-white border border-slate-300 text-slate-900
                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
-                <button class="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white" type="submit">
-                  Search
+                <select
+                  name="from_month"
+                  class="h-10 px-3 rounded-xl bg-white border border-slate-300 text-sm text-slate-900
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">From month</option>
+                  {% for m in forecast_month_choices %}
+                    <option value="{{ m }}" {% if forecast_from_month == m %}selected{% endif %}>{{ m }}</option>
+                  {% endfor %}
+                </select>
+                <select
+                  name="to_month"
+                  class="h-10 px-3 rounded-xl bg-white border border-slate-300 text-sm text-slate-900
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">To month</option>
+                  {% for m in forecast_month_choices %}
+                    <option value="{{ m }}" {% if forecast_to_month == m %}selected{% endif %}>{{ m }}</option>
+                  {% endfor %}
+                </select>
+                <button class="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm" type="submit">
+                  Search / Filter
                 </button>
               </form>
             </div>
 
             <div class="px-5 py-3 border-b border-slate-200 text-sm text-slate-600 flex items-center justify-between gap-4 flex-wrap">
-              <div>Total: <span class="font-semibold text-slate-900">{{ forecasts_total }}</span></div>
+              <div class="space-y-1">
+                <div>Total: <span class="font-semibold text-slate-900">{{ forecasts_total }}</span></div>
+                {% if forecast_selected_range_label %}
+                  <div class="text-xs text-slate-500">
+                    Selected months:
+                    <span class="font-semibold text-slate-900">{{ forecast_selected_range_label }}</span>
+                    {% if forecast_selected_total_qty is not None %}
+                      · Total Quantity:
+                      <span class="font-semibold text-slate-900">
+                        {{ forecast_selected_total_qty|floatformat:2 }}
+                      </span>
+                    {% endif %}
+                    {% if forecast_selected_total_amount is not None %}
+                      · Total Amount:
+                      <span class="font-semibold text-slate-900">
+                        {{ forecast_selected_total_amount|floatformat:2 }}
+                      </span>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
               <a href="{% url 'admin:app_forecast_add' %}"
                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm">
                 Add Forecast (Admin)
@@ -824,6 +884,10 @@
                     <th class="px-4 py-3 text-left">Part Name</th>
                     <th class="px-4 py-3 text-left">Customer</th>
                     <th class="px-4 py-3 text-left">Months</th>
+                    <th class="px-4 py-3 text-right">Unit Price</th>
+                    <th class="px-4 py-3 text-right">Quantity</th>
+                    <th class="px-4 py-3 text-right">Total Quantity</th>
+                    <th class="px-4 py-3 text-right">Total Amount</th>
                     <th class="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
@@ -841,6 +905,10 @@
                       {% endif %}
                     </td>
                     <td class="px-4 py-3">{{ f.months_display }}</td>
+                    <td class="px-4 py-3 text-right">{{ f.base_unit_price|floatformat:4 }}</td>
+                    <td class="px-4 py-3 text-right">{{ f.latest_quantity|floatformat:2 }}</td>
+                    <td class="px-4 py-3 text-right">{{ f.total_quantity|floatformat:2 }}</td>
+                    <td class="px-4 py-3 text-right">{{ f.total_amount|floatformat:2 }}</td>
                     <td class="px-4 py-3 text-right">
                       <button type="button"
                               class="edit-forecast px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white"
@@ -864,6 +932,7 @@
             </div>
 
           </div>
+
         </div>
 
         <div class="lg:col-span-4">
@@ -892,6 +961,9 @@
       </div>
 
       {% endif %}
+
+        </div>  <!-- end main column -->
+      </div>    <!-- end layout flex -->
 
     </div>
   </div>
@@ -1089,6 +1161,161 @@
           <button type="submit"
                   class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
             Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="previous-forecast-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+  <div id="previous-forecast-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="px-5 py-4 border-b border-slate-200 flex justify-between items-center">
+        <div>
+          <div class="font-semibold text-slate-900">Previous Forecast</div>
+          <div class="text-xs text-slate-500">Store previous forecast per part (JSON rows per month).</div>
+        </div>
+        <button type="button" id="previous-forecast-close"
+                class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+          Close
+        </button>
+      </div>
+
+      <form method="post" class="p-5 space-y-4 overflow-y-auto flex-1">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_previous_forecast">
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Forecast / Part</label>
+          <select name="forecast_id" required
+                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">Select part number…</option>
+            {% for f in forecasts_list %}
+            <option value="{{ f.id }}">{{ f.part_number }} — {{ f.part_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Previous Forecast (JSON)</label>
+          <textarea name="monthly_forecasts" id="previous-forecast-monthly" rows="6"
+                    placeholder='[{"date": "Jan-2025", "unit_price": 0.13, "quantity": 1000}]'
+                    class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+          <p class="mt-1 text-xs text-slate-500">
+            Same format as main forecast: array of objects with <code>date</code>, <code>unit_price</code>, <code>quantity</code>.
+          </p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="previous-forecast-cancel"
+                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+            Save Previous Forecast
+          </button>
+        </div>
+
+        <div class="border-t border-slate-200 pt-4 mt-2 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-900">Previous Forecast Records</h3>
+            <span class="text-xs text-slate-500">Read-only view of data saved via API</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs md:text-sm">
+              <thead class="bg-slate-50 text-slate-700">
+                <tr>
+                  <th class="px-3 py-2 text-left">Part Number</th>
+                  <th class="px-3 py-2 text-left">Part Name</th>
+                  <th class="px-3 py-2 text-left">Months</th>
+                  <th class="px-3 py-2 text-right">Unit Price</th>
+                  <th class="px-3 py-2 text-right">Quantity</th>
+                  <th class="px-3 py-2 text-right">Total Qty</th>
+                  <th class="px-3 py-2 text-right">Total Amt</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {% for p in previous_forecasts_list %}
+                <tr class="border-t border-slate-200">
+                  <td class="px-3 py-2 font-medium">{{ p.part_number }}</td>
+                  <td class="px-3 py-2">{{ p.part_name }}</td>
+                  <td class="px-3 py-2">{{ p.months }}</td>
+                  <td class="px-3 py-2 text-right">{{ p.unit_price|floatformat:4 }}</td>
+                  <td class="px-3 py-2 text-right">{{ p.quantity|floatformat:2 }}</td>
+                  <td class="px-3 py-2 text-right">{{ p.total_quantity|floatformat:2 }}</td>
+                  <td class="px-3 py-2 text-right">{{ p.total_amount|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="7" class="px-3 py-6 text-center text-slate-500">
+                    No previous forecasts saved yet. Use this form or the API to add data.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="actual-delivered-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+  <div id="actual-delivered-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="px-5 py-4 border-b border-slate-200 flex justify-between items-center">
+        <div>
+          <div class="font-semibold text-slate-900">Actual Delivered</div>
+          <div class="text-xs text-slate-500">Store actual delivered quantities per month.</div>
+        </div>
+        <button type="button" id="actual-delivered-close"
+                class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+          Close
+        </button>
+      </div>
+
+      <form method="post" class="p-5 space-y-4 overflow-y-auto flex-1">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_actual_delivered">
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Forecast / Part</label>
+          <select name="forecast_id" required
+                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">Select part number…</option>
+            {% for f in forecasts_list %}
+            <option value="{{ f.id }}">{{ f.part_number }} — {{ f.part_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Actual Delivered (JSON)</label>
+          <textarea name="monthly_forecasts" id="actual-delivered-monthly" rows="6"
+                    placeholder='[{"date": "Jan-2025", "unit_price": 0.13, "quantity": 950}]'
+                    class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+          <p class="mt-1 text-xs text-slate-500">
+            Same format as main forecast: array of objects with <code>date</code>, <code>unit_price</code>, <code>quantity</code>.
+          </p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="actual-delivered-cancel"
+                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+            Save Actual Delivered
           </button>
         </div>
       </form>
@@ -1365,6 +1592,52 @@
     if (lossPct) lossPct.addEventListener("input", recalcTotal);
 
     recalcTotal();
+
+    const prevBackdrop = document.getElementById("previous-forecast-backdrop");
+    const prevModal = document.getElementById("previous-forecast-modal");
+    const prevOpen = document.getElementById("open-previous-forecast");
+    const prevClose = document.getElementById("previous-forecast-close");
+    const prevCancel = document.getElementById("previous-forecast-cancel");
+
+    function openPrevModal() {
+      if (!prevBackdrop || !prevModal) return;
+      prevBackdrop.classList.remove("hidden");
+      prevModal.classList.remove("hidden");
+    }
+
+    function closePrevModal() {
+      if (!prevBackdrop || !prevModal) return;
+      prevBackdrop.classList.add("hidden");
+      prevModal.classList.add("hidden");
+    }
+
+    if (prevOpen) prevOpen.addEventListener("click", openPrevModal);
+    if (prevClose) prevClose.addEventListener("click", closePrevModal);
+    if (prevCancel) prevCancel.addEventListener("click", closePrevModal);
+    if (prevBackdrop) prevBackdrop.addEventListener("click", closePrevModal);
+
+    const actualBackdrop = document.getElementById("actual-delivered-backdrop");
+    const actualModal = document.getElementById("actual-delivered-modal");
+    const actualOpen = document.getElementById("open-actual-delivered");
+    const actualClose = document.getElementById("actual-delivered-close");
+    const actualCancel = document.getElementById("actual-delivered-cancel");
+
+    function openActualModal() {
+      if (!actualBackdrop || !actualModal) return;
+      actualBackdrop.classList.remove("hidden");
+      actualModal.classList.remove("hidden");
+    }
+
+    function closeActualModal() {
+      if (!actualBackdrop || !actualModal) return;
+      actualBackdrop.classList.add("hidden");
+      actualModal.classList.add("hidden");
+    }
+
+    if (actualOpen) actualOpen.addEventListener("click", openActualModal);
+    if (actualClose) actualClose.addEventListener("click", closeActualModal);
+    if (actualCancel) actualCancel.addEventListener("click", closeActualModal);
+    if (actualBackdrop) actualBackdrop.addEventListener("click", closeActualModal);
   </script>
 
 </body>
