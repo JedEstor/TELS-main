@@ -322,6 +322,22 @@
         </div>
       </a>
 
+      <!-- Actual Delivered Link -->
+      <a href="{% url 'app:admin_dashboard' %}?tab=actual_delivered"
+         class="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition
+                {% if tab == 'actual_delivered' %}bg-white/10{% endif %}">
+        <span class="inline-flex h-9 w-9 rounded-lg bg-white/5 items-center justify-center border border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 3h18v4H3V3zm0 6h10v4H3V9zm0 6h6v4H3v-4zM15 9h6v10h-6V9z" />
+          </svg>
+        </span>
+        <div class="nav-text">
+          <div class="font-medium">Actual Delivered</div>
+          <div class="text-xs text-slate-200/80">Actual shipment by month</div>
+        </div>
+      </a>
+
       <!-- Divider -->
       <div class="pt-2 border-t border-white/10"></div>
 
@@ -372,8 +388,43 @@
 
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 class="text-2xl font-bold text-blue-300">Admin Dashboard</h1>
-            <p class="text-sm text-slate-200/80">Overview + quick access</p>
+            <h1 class="text-2xl font-bold text-blue-300">
+              Admin Dashboard
+              {% if tab == "customers" %}
+                · Customer Records
+              {% elif tab == "materials" %}
+                · Material List
+              {% elif tab == "users" %}
+                · User Management
+              {% elif tab == "forecast" %}
+                · Forecast Records
+              {% elif tab == "previous_forecast" %}
+                · Previous Forecast
+              {% elif tab == "forecast_summary" %}
+                · Forecast Summary
+              {% elif tab == "actual_delivered" %}
+                · Actual Delivered
+              {% endif %}
+            </h1>
+            <p class="text-sm text-slate-200/80">
+              {% if tab == "customers" %}
+                View customers, parts and TEP codes
+              {% elif tab == "materials" %}
+                Manage material masterlist
+              {% elif tab == "users" %}
+                Manage admin and staff users
+              {% elif tab == "forecast" %}
+                View and edit current forecast records
+              {% elif tab == "previous_forecast" %}
+                Review previous year forecasts
+              {% elif tab == "forecast_summary" %}
+                Compare previous and current forecasts
+              {% elif tab == "actual_delivered" %}
+                View actual delivered quantities per month
+              {% else %}
+                Overview + quick access
+              {% endif %}
+            </p>
           </div>
         </div>
 
@@ -927,7 +978,7 @@
         {% endif %}
 
         <!-- Forecast content will be included here from separate templates -->
-        {% if tab == "forecast" or tab == "previous_forecast" or tab == "forecast_summary" %}
+        {% if tab == "forecast" or tab == "previous_forecast" or tab == "forecast_summary" or tab == "actual_delivered" %}
           {% include "admin/forecast_pages.html" %}
         {% endif %}
 
