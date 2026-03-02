@@ -4,341 +4,759 @@
   <meta charset="UTF-8">
   <title>Admin Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    .ui-select {
+    height: 40px;              
+    min-width: 160px;          
+    padding: 0 10px;
+    border-radius: 0.75rem;    
+    border: 1px solid #cbd5e1; 
+    background-color: #fff;
+    font-size: 0.875rem;       
+    line-height: 1.25rem;
+  }
+
+  .ui-select:focus {
+    outline: none;
+    border-color: #3b82f6;     
+    box-shadow: 0 0 0 2px rgba(59,130,246,.25);
+  }
+    .sidebar {
+      width: 72px;
+      transition: width 180ms ease;
+    }
+    .sidebar:hover {
+      width: 260px;
+    }
+    .main-wrap {
+      padding-left: 72px;
+      transition: padding-left 180ms ease;
+    }
+    .sidebar:hover ~ .main-wrap {
+      padding-left: 260px;
+    }
+
+    .nav-text {
+      opacity: 0;
+      transform: translateX(-6px);
+      transition: opacity 160ms ease, transform 160ms ease;
+      white-space: nowrap;
+    }
+    .sidebar:hover .nav-text {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .sidebar-gradient {
+      background:
+        linear-gradient(
+          180deg,
+          #0a1222 0%,
+          #0b1a33 28%,
+          #0c2344 55%,
+          #0b1a33 78%,
+          #0a1222 100%
+        );
+      position: relative;
+      box-shadow:
+        inset -1px 0 0 rgba(255,255,255,0.04);
+    }
+
+    .sidebar-gradient::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(
+          ellipse at bottom center,
+          rgba(255,255,255,0.12) 0%,
+          rgba(255,255,255,0.06) 25%,
+          rgba(255,255,255,0.02) 45%,
+          rgba(255,255,255,0) 70%
+        );
+      pointer-events: none;
+    }
+
+    .topbar-gradient {
+      background:
+        linear-gradient(
+          90deg,
+          #0a1222 0%,
+          #0c2344 50%,
+          #0a1222 100%
+        );
+    }
+
+    .sidebar:hover {
+      box-shadow: 4px 0 18px rgba(0,0,0,0.35);
+    }
+
+    /* Forecast Summary Styles - Kept for the included templates */
+    .fs-table-wrap {
+      overflow-x: auto;
+      border-radius: 1rem;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .fs-table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 1400px;
+      font-size: 0.75rem;
+      font-family: 'Courier New', monospace;
+    }
+    .fs-section-prev {
+      background: #fef08a;
+      color: #1e293b;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 0.05em;
+      font-size: 0.7rem;
+    }
+    .fs-section-fore {
+      background: #bfdbfe;
+      color: #1e293b;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 0.05em;
+      font-size: 0.7rem;
+    }
+    .fs-table thead .fs-col-header {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 700;
+      padding: 6px 10px;
+      text-align: center;
+      border: 1px solid #cbd5e1;
+      white-space: nowrap;
+      font-size: 0.7rem;
+      letter-spacing: 0.03em;
+    }
+    .fs-table thead .fs-col-header.sticky-left {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: #f1f5f9;
+    }
+    .fs-table tbody tr.data-row {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      transition: background 0.1s;
+    }
+    .fs-table tbody tr.data-row:hover {
+      background: #f8fafc;
+    }
+    .fs-table tbody td {
+      padding: 6px 10px;
+      border: 1px solid #e2e8f0;
+      text-align: right;
+      color: #334155;
+      white-space: nowrap;
+    }
+    .fs-table tbody td.sticky-left {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: #fff;
+      font-weight: 500;
+      color: #0f172a;
+    }
+    .fs-table tbody tr.data-row:hover td.sticky-left {
+      background: #f8fafc;
+    }
+    .fs-table tbody tr.total-row td {
+      background: #f0fdf4;
+      font-weight: 700;
+      color: #166534;
+      border-top: 2px solid #86efac;
+      border-bottom: 1px solid #bbf7d0;
+    }
+    .fs-table tbody tr.total-amount-row td {
+      background: #eff6ff;
+      font-weight: 700;
+      color: #1d4ed8;
+      border-bottom: 2px solid #93c5fd;
+    }
+    .fs-table tbody td.zero-val { color: #94a3b8; }
+    .fs-table tbody td.dash-val { color: #cbd5e1; }
+    .fs-table td.section-border-left,
+    .fs-table th.section-border-left {
+      border-left: 2px solid #94a3b8 !important;
+    }
+    .fs-table th.prev-month {
+      background: #fefce8;
+      color: #854d0e;
+    }
+    .fs-table th.fore-month {
+      background: #eff6ff;
+      color: #1e40af;
+    }
+    .fs-table tbody tr.total-row td.sticky-left,
+    .fs-table tbody tr.total-amount-row td.sticky-left {
+      background: inherit;
+    }
+  </style>
+  {% load humanize %}
+  {% load customer_filters %}
 </head>
 
 <body class="min-h-screen bg-slate-100 text-slate-900">
 
-  <div class="bg-slate-900 text-slate-100">
-    <div class="max-w-7xl mx-auto p-6 space-y-6">
+  <aside class="sidebar sidebar-gradient fixed left-0 top-0 h-full z-50 text-slate-100 border-r border-slate-800 overflow-hidden">
+  <div class="h-full flex flex-col">
 
-      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-blue-400">Admin Dashboard</h1>
-          <p class="text-sm text-slate-300">Overview + quick access</p>
+    <!-- Logo/Header Section -->
+    <div class="p-4 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold">
+          AD
         </div>
-
-        <div class="flex flex-wrap gap-2">
-          <a href="{% url 'app:customer_list' %}"
-             class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">
-            Customers Page
-          </a>
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-           <a href="{% url 'app:logout' %}"
-            class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">
-            Logout
-          </a>
-        </div>
-
-      </div>
-
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
-          <div class="text-sm text-slate-300">Customers</div>
-          <div class="text-2xl font-semibold">{{ customers_count }}</div>
-        </div>
-        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
-          <div class="text-sm text-slate-300">TEP Codes</div>
-          <div class="text-2xl font-semibold">{{ tep_count }}</div>
-        </div>
-        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
-          <div class="text-sm text-slate-300">Materials</div>
-          <div class="text-2xl font-semibold">{{ materials_count }}</div>
-        </div>
-        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
-          <div class="text-sm text-slate-300">Users</div>
-          <div class="text-2xl font-semibold">{{ users_count }}</div>
-        </div>
-        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
-          <div class="text-sm text-slate-300">Forecasts</div>
-          <div class="text-2xl font-semibold">{{ forecasts_count }}</div>
+        <div class="nav-text">
+          <div class="font-semibold leading-tight">Admin</div>
+          <div class="text-xs text-slate-200/80 -mt-0.5">Dashboard</div>
         </div>
       </div>
-
     </div>
+
+    <!-- Navigation Links -->
+    <nav class="p-3 space-y-2 flex-1">
+
+      <!-- Customer Records Link -->
+      <a href="{% url 'app:admin_dashboard' %}?tab=customers{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}"
+         class="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition
+                {% if tab == 'customers' %}bg-white/10{% endif %}">
+        <span class="inline-flex h-9 w-9 rounded-lg bg-white/5 items-center justify-center border border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 11-8 0 4 4 0 018 0zm10 4a4 4 0 10-8 0 4 4 0 008 0z" />
+          </svg>
+        </span>
+        <div class="nav-text">
+          <div class="font-medium">Customer Records</div>
+          <div class="text-xs text-slate-200/80">View, Add, Insert Materials</div>
+        </div>
+      </a>
+
+      <!-- Material List Link -->
+      <a href="{% url 'app:admin_dashboard' %}?tab=materials{% if request.GET.mq %}&mq={{ request.GET.mq|urlencode }}{% endif %}{% if request.GET.page %}&page={{ request.GET.page }}{% endif %}"
+         class="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition
+                {% if tab == 'materials' %}bg-white/10{% endif %}">
+        <span class="inline-flex h-9 w-9 rounded-lg bg-white/5 items-center justify-center border border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M20 13V7a2 2 0 00-2-2h-4M4 7v10a2 2 0 002 2h4m4 0h4a2 2 0 002-2v-4m-10 6V5m0 14H8m4 0h4" />
+          </svg>
+        </span>
+        <div class="nav-text">
+          <div class="font-medium">Material List</div>
+          <div class="text-xs text-slate-200/80">View & Add Materials</div>
+        </div>
+      </a>
+
+      <!-- User Management Link -->
+      <a href="{% url 'app:admin_dashboard' %}?tab=users{% if request.GET.uq %}&uq={{ request.GET.uq|urlencode }}{% endif %}"
+         class="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition
+                {% if tab == 'users' %}bg-white/10{% endif %}">
+        <span class="inline-flex h-9 w-9 rounded-lg bg-white/5 items-center justify-center border border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 11c1.657 0 3-1.343 3-3S13.657 5 12 5s-3 1.343-3 3 1.343 3 3 3zm0 2c-2.761 0-5 1.79-5 4v1h10v-1c0-2.21-2.239-4-5-4z" />
+          </svg>
+        </span>
+        <div class="nav-text">
+          <div class="font-medium">User Management</div>
+          <div class="text-xs text-slate-200/80">Admin controls</div>
+        </div>
+      </a>
+
+      <!-- Forecast Records Link -->
+      <a href="{% url 'app:admin_dashboard' %}?tab=forecast"
+         class="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition
+                {% if tab == 'forecast' %}bg-white/10{% endif %}">
+        <span class="inline-flex h-9 w-9 rounded-lg bg-white/5 items-center justify-center border border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </span>
+        <div class="nav-text">
+          <div class="font-medium">Forecast Records</div>
+          <div class="text-xs text-slate-200/80">View & manage forecasts</div>
+        </div>
+      </a>
+
+            <!-- Previous Forecast Link -->
+      <a href="{% url 'app:admin_dashboard' %}?tab=previous_forecast"
+        class="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition
+                {% if tab == 'previous_forecast' %}bg-white/10{% endif %}">
+        <span class="inline-flex h-9 w-9 rounded-lg bg-white/5 items-center justify-center border border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </span>
+        <div class="nav-text">
+          <div class="font-medium">Previous Forecast</div>
+          <div class="text-xs text-slate-200/80">Historical forecast data</div>
+        </div>
+      </a>
+
+      <!-- Forecast Summary Link -->
+      <a href="{% url 'app:admin_dashboard' %}?tab=forecast_summary"
+         class="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition
+                {% if tab == 'forecast_summary' %}bg-white/10{% endif %}">
+        <span class="inline-flex h-9 w-9 rounded-lg bg-white/5 items-center justify-center border border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+          </svg>
+        </span>
+        <div class="nav-text">
+          <div class="font-medium">Forecast Summary</div>
+          <div class="text-xs text-slate-200/80">Charts & analytics</div>
+        </div>
+      </a>
+
+      <!-- Divider -->
+      <div class="pt-2 border-t border-white/10"></div>
+
+      <!-- Customers Page Link (External) -->
+      <a href="{% url 'app:customer_list' %}"
+         class="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition">
+        <span class="inline-flex h-9 w-9 rounded-lg bg-white/5 items-center justify-center border border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7V3h8v4M6 7h12M6 7v14h12V7" />
+          </svg>
+        </span>
+        <div class="nav-text">
+          <div class="font-medium">Customers Page</div>
+          <div class="text-xs text-slate-200/80">Go to customer list</div>
+        </div>
+      </a>
+
+      <!-- Logout Link -->
+      <a href="{% url 'app:logout' %}"
+         class="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 transition">
+        <span class="inline-flex h-9 w-9 rounded-lg bg-white/5 items-center justify-center border border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h4a2 2 0 012 2v1" />
+          </svg>
+        </span>
+        <div class="nav-text">
+          <div class="font-medium">Logout</div>
+        </div>
+      </a>
+
+    </nav>
+
+    <!-- Footer -->
+    <div class="p-3 border-t border-white/10">
+      <div class="text-xs text-slate-200/70 nav-text">Taisei IT OJT • 2026.</div>
+      <div class="text-[11px] text-slate-200/50">v1</div>
+    </div>
+
   </div>
+</aside>
 
-  <div class="bg-white">
-    <div class="max-w-7xl mx-auto p-6 space-y-6">
+  <div class="main-wrap">
 
-      <div class="flex flex-col md:flex-row gap-6">
+    <div class="topbar-gradient text-slate-100">
+      <div class="max-w-7xl mx-auto p-6 space-y-6">
 
-        <div class="md:w-56 lg:w-64 shrink-0">
-          <nav class="bg-slate-900 text-slate-100 rounded-2xl p-3 space-y-1 shadow-sm">
-            <a href="?tab=customers&q={{ q|urlencode }}"
-               class="group flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium
-               {% if tab == 'customers' %}bg-slate-800 text-white{% else %}text-slate-200 hover:bg-slate-800 hover:text-white{% endif %}">
-              <span>Customer Records</span>
-              <span class="text-xs text-slate-400 group-hover:text-slate-200">›</span>
-            </a>
-
-            <a href="?tab=materials&mq={{ mq|urlencode }}"
-               class="group flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium
-               {% if tab == 'materials' %}bg-slate-800 text-white{% else %}text-slate-200 hover:bg-slate-800 hover:text-white{% endif %}">
-              <span>Material List</span>
-              <span class="text-xs text-slate-400 group-hover:text-slate-200">›</span>
-            </a>
-
-            <a href="?tab=users&uq={{ uq|urlencode }}"
-               class="group flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium
-               {% if tab == 'users' %}bg-slate-800 text-white{% else %}text-slate-200 hover:bg-slate-800 hover:text-white{% endif %}">
-              <span>Users</span>
-              <span class="text-xs text-slate-400 group-hover:text-slate-200">›</span>
-            </a>
-
-            <a href="?tab=forecast&fq={{ fq|urlencode }}&from_month={{ forecast_from_month|urlencode }}&to_month={{ forecast_to_month|urlencode }}"
-               class="group flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium
-               {% if tab == 'forecast' %}bg-slate-800 text-white{% else %}text-slate-200 hover:bg-slate-800 hover:text-white{% endif %}">
-              <span>Forecast</span>
-              <span class="text-xs text-slate-400 group-hover:text-slate-200">›</span>
-            </a>
-          </nav>
-        </div>
-
-        <div class="flex-1 space-y-6">
-
-      {% if messages %}
-        <div class="space-y-2">
-          {% for message in messages %}
-            <div class="rounded-xl border px-4 py-3 text-sm
-                        {% if message.tags == 'success' %}
-                          bg-emerald-50 border-emerald-200 text-emerald-800
-                        {% elif message.tags == 'error' %}
-                          bg-rose-50 border-rose-200 text-rose-800
-                        {% else %}
-                          bg-slate-50 border-slate-200 text-slate-700
-                        {% endif %}">
-              {{ message }}
-            </div>
-          {% endfor %}
-        </div>
-      {% endif %}
-
-      {% if tab == "customers" %}
-
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        <div class="lg:col-span-8">
-          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-
-            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 class="text-lg font-semibold text-slate-900">Customer Records</h2>
-              </div>
-
-              <form method="get" class="flex gap-2">
-                <input type="hidden" name="tab" value="customers">
-                <input
-                  type="text"
-                  name="q"
-                  value="{{ q|default:'' }}"
-                  placeholder="Search customer / tep_code / part_code / materials..."
-                  class="w-80 max-w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white" type="submit">
-                  Search
-                </button>
-              </form>
-            </div>
-
-            <div>
-              <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th class="px-4 py-3 text-left">Customer</th>
-                    <th class="px-4 py-3 text-left">Part Code</th>
-                    <th class="px-4 py-3 text-left">TEP Code</th>
-                    <th class="px-4 py-3 text-left">Materials</th>
-                    <th class="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                {% for c in customers %}
-                  <tr class="border-t border-slate-200 hover:bg-slate-50">
-                    <td class="px-4 py-3 font-medium">{{ c.customer_name }}</td>
-
-                    <td class="px-4 py-3">
-                      <select class="part-code-dropdown px-2 py-1 rounded border border-slate-300 bg-white text-slate-900"
-                              data-row="{{ forloop.counter0 }}">
-                        {% for pc in c.part_code_options %}
-                          <option value="{{ pc }}" {% if pc == c.default_part_code %}selected{% endif %}>{{ pc }}</option>
-                        {% endfor %}
-                      </select>
-                    </td>
-
-                    <td class="px-4 py-3">
-                      <select class="tep-code-dropdown px-2 py-1 rounded border border-slate-300 bg-white text-slate-900"
-                              data-row="{{ forloop.counter0 }}"
-                              id="tep-dd-{{ forloop.counter0 }}">
-                        {% for t in c.default_tep_options %}
-                          <option value="{{ t.tep_id }}" {% if t.tep_id == c.default_tep_id %}selected{% endif %}>
-                            {{ t.tep_code }}
-                          </option>
-                        {% endfor %}
-                      </select>
-                    </td>
-
-                    <td class="px-4 py-3" id="mat-{{ forloop.counter0 }}">
-                      {{ c.default_materials_count|default:0 }}
-                    </td>
-
-                    <td class="px-4 py-3 text-right">
-                      {% if c.default_tep_id %}
-                        <a href="#"
-                           class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white view-link inline-flex"
-                           id="view-{{ forloop.counter0 }}"
-                           data-tep-id="{{ c.default_tep_id }}"
-                           data-part-code="{{ c.default_part_code|escapejs }}">
-                          View
-                        </a>
-                      {% else %}
-                        <span class="px-3 py-2 rounded-xl bg-slate-200 text-slate-600 inline-block">No TEP</span>
-                        <a href="#" class="hidden view-link" id="view-{{ forloop.counter0 }}">View</a>
-                      {% endif %}
-                    </td>
-                  </tr>
-                {% empty %}
-                  <tr>
-                    <td colspan="5" class="px-4 py-10 text-center text-slate-500">
-                      No customers found.
-                    </td>
-                  </tr>
-                {% endfor %}
-                </tbody>
-
-              </table>
-            </div>
-
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-blue-300">Admin Dashboard</h1>
+            <p class="text-sm text-slate-200/80">Overview + quick access</p>
           </div>
         </div>
 
-        <div class="lg:col-span-4">
-          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
-            <div>
-              <h3 class="text-base font-semibold text-slate-900">Add Customer Record</h3>
-            </div>
-
-            <form method="post" class="mt-4 space-y-3" id="customer-full-form">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="add_customer_full">
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Customer Name</label>
-                <input type="text" name="customer_name" required
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="text-sm font-medium text-slate-700">Partcode</label>
-                  <input type="text" name="part_code" required
-                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-slate-700">Partname</label>
-                  <input type="text" name="part_name" required
-                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                </div>
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">TEP Code</label>
-                <input type="text" name="tep_code" required
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-
-              <hr class="my-2">
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Material Partcode (from master list)</label>
-                <input type="text" name="mat_partcode" id="mat-partcode-input" required
-                       placeholder="e.g. 223S 0.19x19 BLACK"
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <div class="text-xs text-slate-500 mt-1" id="mat-master-hint"></div>
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Material Partname</label>
-                <input type="text" name="mat_partname" id="mat-partname" readonly
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700">
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Maker</label>
-                <input type="text" name="mat_maker" id="mat-maker" readonly
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700">
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Unit</label>
-                <input type="text" name="unit" id="mat-unit" readonly
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700">
-              </div>
-
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="text-sm font-medium text-slate-700">Dim/Qty</label>
-                  <input type="number" step="0.0001" name="dim_qty" id="dim-qty" required
-                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-slate-700">Loss %</label>
-                  <input type="number" step="0.01" name="loss_percent" id="loss-percent" value="10"
-                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                  <div class="text-xs text-slate-500 mt-1">Default 10%</div>
-                </div>
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Total</label>
-                <input type="text" name="total" id="total-field" readonly
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700">
-              </div>
-
-              <div class="pt-2">
-                <button type="submit"
-                        class="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
-                  Save Record
-                </button>
-              </div>
-            </form>
-
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+            <div class="text-sm text-slate-200/80">Customers</div>
+            <div class="text-2xl font-semibold">{{ customers_count }}</div>
+          </div>
+          <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+            <div class="text-sm text-slate-200/80">TEP Codes</div>
+            <div class="text-2xl font-semibold">{{ tep_count }}</div>
+          </div>
+          <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+            <div class="text-sm text-slate-200/80">Materials</div>
+            <div class="text-2xl font-semibold">{{ materials_count }}</div>
+          </div>
+          <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+            <div class="text-sm text-slate-200/80">Users</div>
+            <div class="text-2xl font-semibold">{{ users_count }}</div>
           </div>
         </div>
 
       </div>
-      {% endif %}
+    </div>
 
-      {% if tab == "materials" %}
+    <div class="bg-white">
+      <div class="max-w-7xl mx-auto p-6 space-y-6">
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        <div class="lg:col-span-8">
-          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-
-            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 class="text-lg font-semibold text-slate-900">Material Masterlist</h2>
+        {% if messages %}
+          <div id="flash-messages" class="space-y-2">
+            {% for message in messages %}
+              <div class="flash-msg rounded-xl border px-4 py-3 text-sm transition-opacity duration-300 opacity-100
+                          {% if message.tags == 'success' %}
+                            bg-emerald-50 border-emerald-200 text-emerald-800
+                          {% elif message.tags == 'error' %}
+                            bg-rose-50 border-rose-200 text-rose-800
+                          {% else %}
+                            bg-slate-50 border-slate-200 text-slate-700
+                          {% endif %}">
+                {{ message }}
               </div>
+            {% endfor %}
+          </div>
+        {% endif %}
 
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <form method="get" class="flex items-center gap-2">
-                  <input type="hidden" name="tab" value="materials">
+        {% if tab == "customers" %}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-8">
+            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 class="text-lg font-semibold text-slate-900">Customer Records</h2>
+                </div>
+                <form method="get" class="flex gap-2">
+                  <input type="hidden" name="tab" value="customers">
                   <input
                     type="text"
-                    name="mq"
-                    value="{{ mq|default:'' }}"
-                    placeholder="Search partcode / name / maker / unit..."
+                    name="q"
+                    value="{{ q|default:'' }}"
+                    placeholder="Search customer / tep_code / part_code / materials..."
+                    class="w-80 max-w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white" type="submit">
+                    Search
+                  </button>
+                </form>
+              </div>
+              <div>
+                <table class="w-full text-sm">
+                  <thead class="bg-slate-50 text-slate-700">
+                    <tr>
+                      <th class="px-4 py-3 text-left">Customer</th>
+                      <th class="px-4 py-3 text-left">Part Code</th>
+                      <th class="px-4 py-3 text-left">TEP Code</th>
+                      <th class="px-4 py-3 text-left">Materials</th>
+                      <th class="px-4 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  {% for c in customers %}
+                    <tr class="border-t border-slate-200 hover:bg-slate-50">
+                      <td class="px-4 py-3 font-medium">{{ c.customer_name }}</td>
+                      <td class="px-4 py-3">
+                        <select class="part-code-dropdown ui-select"
+                                data-row="{{ forloop.counter0 }}">
+                          {% for pc in c.part_code_options %}
+                            <option value="{{ pc }}" {% if pc == c.default_part_code %}selected{% endif %}>{{ pc }}</option>
+                          {% endfor %}
+                        </select>
+                      </td>
+                      <td class="px-4 py-3">
+                        <select class="tep-code-dropdown ui-select"
+                                data-row="{{ forloop.counter0 }}"
+                                id="tep-dd-{{ forloop.counter0 }}">
+                          {% for t in c.default_tep_options %}
+                            <option value="{{ t.tep_id }}" {% if t.tep_id == c.default_tep_id %}selected{% endif %}>
+                              {{ t.tep_code }}
+                            </option>
+                          {% endfor %}
+                        </select>
+                      </td>
+                      <td class="px-4 py-3" id="mat-{{ forloop.counter0 }}">
+                        {{ c.default_materials_count|default:0 }}
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        {% if c.default_tep_id %}
+                          <a href="#"
+                             class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white view-link inline-flex"
+                             id="view-{{ forloop.counter0 }}"
+                             data-tep-id="{{ c.default_tep_id }}"
+                             data-part-code="{{ c.default_part_code|escapejs }}">
+                            View
+                          </a>
+                        {% else %}
+                          <span class="px-3 py-2 rounded-xl bg-slate-200 text-slate-600 inline-block">No TEP</span>
+                          <a href="#" class="hidden view-link" id="view-{{ forloop.counter0 }}">View</a>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="5" class="px-4 py-10 text-center text-slate-500">
+                        No customers found.
+                      </td>
+                    </tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="lg:col-span-4">
+            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
+              <div>
+                <h3 class="text-base font-semibold text-slate-900">Add Customer Record</h3>
+              </div>
+              <form method="post" class="mt-4 space-y-3" id="customer-full-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_customer_full">
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Customer Name</label>
+                  <input type="text" name="customer_name" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-sm font-medium text-slate-700">Partcode</label>
+                    <input type="text" name="part_code" required
+                           class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  </div>
+                  <div>
+                    <label class="text-sm font-medium text-slate-700">Partname</label>
+                    <input type="text" name="part_name" required
+                           class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  </div>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700">TEP Code</label>
+                  <input type="text" name="tep_code" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <hr class="my-2">
+                <div class="pt-2">
+                  <button type="submit"
+                          class="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+                    Save Record
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if tab == "materials" %}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-8">
+            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 class="text-lg font-semibold text-slate-900">Material Masterlist</h2>
+                </div>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                  <form method="get" class="flex items-center gap-2">
+                    <input type="hidden" name="tab" value="materials">
+                    <input
+                      type="text"
+                      name="mq"
+                      value="{{ mq|default:'' }}"
+                      placeholder="Search partcode / name / maker / unit..."
+                      class="h-10 w-80 max-w-full px-3 rounded-xl bg-white border border-slate-300 text-slate-900
+                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <button class="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white" type="submit">
+                      Search
+                    </button>
+                  </form>
+                </div>
+              </div>
+              <div class="px-5 py-3 border-b border-slate-200 text-sm text-slate-600 flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  Total: <span class="font-semibold text-slate-900">{{ material_total }}</span>
+                </div>
+                {% if page_obj %}
+                <div class="text-slate-500">
+                  Page <span class="font-semibold text-slate-900">{{ page_obj.number }}</span>
+                  of <span class="font-semibold text-slate-900">{{ page_obj.paginator.num_pages }}</span>
+                </div>
+                {% endif %}
+              </div>
+              <div>
+                <table class="w-full text-sm">
+                  <thead class="bg-slate-50 text-slate-700">
+                    <tr>
+                      <th class="px-4 py-3 text-left">Part Code</th>
+                      <th class="px-4 py-3 text-left">Name</th>
+                      <th class="px-4 py-3 text-left">Maker</th>
+                      <th class="px-4 py-3 text-left">Unit</th>
+                      <th class="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for m in material_list %}
+                    <tr class="border-t border-slate-200 hover:bg-slate-50">
+                      <td class="px-4 py-3 font-medium">{{ m.mat_partcode }}</td>
+                      <td class="px-4 py-3">{{ m.mat_partname }}</td>
+                      <td class="px-4 py-3">{{ m.mat_maker|default:"—" }}</td>
+                      <td class="px-4 py-3">{{ m.unit|default:"—" }}</td>
+                      <td class="px-4 py-3 text-right">
+                        <div class="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            class="edit-material px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                            data-id="{{ m.id }}"
+                            data-partcode="{{ m.mat_partcode|escapejs }}"
+                            data-partname="{{ m.mat_partname|escapejs }}"
+                            data-maker="{{ m.mat_maker|default_if_none:''|escapejs }}"
+                            data-unit="{{ m.unit|default_if_none:'pc'|escapejs }}"
+                          >
+                            Edit
+                          </button>
+                          <form method="post" class="inline"
+                                onsubmit="return confirm('Delete {{ m.mat_partcode }}? This cannot be undone.');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_material">
+                            <input type="hidden" name="mat_id" value="{{ m.id }}">
+                            <button type="submit"
+                                    class="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white">
+                              Delete
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                      <td colspan="5" class="px-4 py-10 text-center text-slate-500">
+                        No materials found.
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% if page_obj and page_obj.paginator.num_pages > 1 %}
+              <div class="px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+                <div class="text-sm text-slate-500">
+                  Showing
+                  <span class="font-medium text-slate-900">{{ page_obj.start_index }}</span>–
+                  <span class="font-medium text-slate-900">{{ page_obj.end_index }}</span>
+                  of
+                  <span class="font-medium text-slate-900">{{ page_obj.paginator.count }}</span>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  {% if page_obj.has_previous %}
+                    <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                       href="?tab=materials&mq={{ mq|urlencode }}&page={{ page_obj.previous_page_number }}">
+                      ← Prev
+                    </a>
+                  {% else %}
+                    <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
+                      ← Prev
+                    </span>
+                  {% endif %}
+                  {% for p in page_obj.paginator.page_range %}
+                    {% if p == page_obj.number %}
+                      <span class="px-3 py-2 rounded-xl bg-blue-600 text-white text-sm">{{ p }}</span>
+                    {% elif p >= page_obj.number|add:-2 and p <= page_obj.number|add:2 %}
+                      <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                         href="?tab=materials&mq={{ mq|urlencode }}&page={{ p }}">{{ p }}</a>
+                    {% endif %}
+                  {% endfor %}
+                  {% if page_obj.has_next %}
+                    <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                       href="?tab=materials&mq={{ mq|urlencode }}&page={{ page_obj.next_page_number }}">
+                      Next →
+                    </a>
+                  {% else %}
+                    <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
+                      Next →
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="lg:col-span-4">
+            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="text-base font-semibold text-slate-900">Add Material</h3>
+                  <p class="text-sm text-slate-500">Insert directly into MaterialList.</p>
+                </div>
+                <button type="button" id="open-csv-upload"
+                  class="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white whitespace-nowrap">
+                  CSV Upload
+                </button>
+              </div>
+              <form method="post" class="mt-4 space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_material">
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Part Code</label>
+                  <input type="text" name="mat_partcode" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Part Name</label>
+                  <input type="text" name="mat_partname"
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Maker</label>
+                  <input type="text" name="mat_maker"
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Unit</label>
+                  <select name="unit"
+                      class="mt-1 w-full ui-select">
+                    <option value="pc">pc</option>
+                    <option value="pcs">pcs</option>
+                    <option value="m">m</option>
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                  </select>
+                </div>
+                <div class="pt-2">
+                  <button type="submit"
+                          class="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+                    Save
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if tab == "users" %}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-8">
+            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 class="text-lg font-semibold text-slate-900">User Management</h2>
+                </div>
+                <form method="get" class="flex items-center gap-2">
+                  <input type="hidden" name="tab" value="users">
+                  <input
+                    type="text"
+                    name="uq"
+                    value="{{ uq|default:'' }}"
+                    placeholder="Search employee_id / name / department..."
                     class="h-10 w-80 max-w-full px-3 rounded-xl bg-white border border-slate-300 text-slate-900
                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -347,625 +765,175 @@
                   </button>
                 </form>
               </div>
-            </div>
-
-            <div class="px-5 py-3 border-b border-slate-200 text-sm text-slate-600 flex items-center justify-between gap-4 flex-wrap">
-              <div>
-                Total: <span class="font-semibold text-slate-900">{{ material_total }}</span>
-              </div>
-              {% if page_obj %}
-              <div class="text-slate-500">
-                Page <span class="font-semibold text-slate-900">{{ page_obj.number }}</span>
-                of <span class="font-semibold text-slate-900">{{ page_obj.paginator.num_pages }}</span>
-              </div>
-              {% endif %}
-            </div>
-
-            <div>
-              <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th class="px-4 py-3 text-left">Part Code</th>
-                    <th class="px-4 py-3 text-left">Name</th>
-                    <th class="px-4 py-3 text-left">Maker</th>
-                    <th class="px-4 py-3 text-left">Unit</th>
-                    <th class="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {% for m in material_list %}
-                  <tr class="border-t border-slate-200 hover:bg-slate-50">
-                    <td class="px-4 py-3 font-medium">{{ m.mat_partcode }}</td>
-                    <td class="px-4 py-3">{{ m.mat_partname }}</td>
-                    <td class="px-4 py-3">{{ m.mat_maker|default:"—" }}</td>
-                    <td class="px-4 py-3">{{ m.unit|default:"—" }}</td>
-
-                    <td class="px-4 py-3 text-right">
-                      <div class="inline-flex items-center gap-2">
-                        <button
-                          type="button"
-                          class="edit-material px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
-                          data-id="{{ m.id }}"
-                          data-partcode="{{ m.mat_partcode|escapejs }}"
-                          data-partname="{{ m.mat_partname|escapejs }}"
-                          data-maker="{{ m.mat_maker|default_if_none:''|escapejs }}"
-                          data-unit="{{ m.unit|default_if_none:'pc'|escapejs }}"
-                        >
-                          Edit
-                        </button>
-
-                        <form method="post" class="inline"
-                              onsubmit="return confirm('Delete {{ m.mat_partcode }}? This cannot be undone.');">
-                          {% csrf_token %}
-                          <input type="hidden" name="action" value="delete_material">
-                          <input type="hidden" name="mat_id" value="{{ m.id }}">
-                          <button type="submit"
-                                  class="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white">
-                            Delete
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                  {% empty %}
-                  <tr>
-                    <td colspan="5" class="px-4 py-10 text-center text-slate-500">
-                      No materials found.
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-
-              </table>
-            </div>
-
-            {% if page_obj and page_obj.paginator.num_pages > 1 %}
-            <div class="px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
-              <div class="text-sm text-slate-500">
-                Showing
-                <span class="font-medium text-slate-900">{{ page_obj.start_index }}</span>–
-                <span class="font-medium text-slate-900">{{ page_obj.end_index }}</span>
-                of
-                <span class="font-medium text-slate-900">{{ page_obj.paginator.count }}</span>
-              </div>
-
-              <div class="flex items-center gap-2 flex-wrap">
-                {% if page_obj.has_previous %}
-                  <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
-                     href="?tab=materials&mq={{ mq|urlencode }}&page={{ page_obj.previous_page_number }}">
-                    ← Prev
-                  </a>
-                {% else %}
-                  <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
-                    ← Prev
-                  </span>
-                {% endif %}
-
-                {% for p in page_obj.paginator.page_range %}
-                  {% if p == page_obj.number %}
-                    <span class="px-3 py-2 rounded-xl bg-blue-600 text-white text-sm">{{ p }}</span>
-                  {% elif p >= page_obj.number|add:-2 and p <= page_obj.number|add:2 %}
-                    <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
-                       href="?tab=materials&mq={{ mq|urlencode }}&page={{ p }}">{{ p }}</a>
-                  {% endif %}
-                {% endfor %}
-
-                {% if page_obj.has_next %}
-                  <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
-                     href="?tab=materials&mq={{ mq|urlencode }}&page={{ page_obj.next_page_number }}">
-                    Next →
-                  </a>
-                {% else %}
-                  <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
-                    Next →
-                  </span>
+              <div class="px-5 py-3 border-b border-slate-200 text-sm text-slate-600 flex items-center justify-between gap-4 flex-wrap">
+                <div>Total: <span class="font-semibold text-slate-900">{{ user_total }}</span></div>
+                {% if users_page %}
+                <div class="text-slate-500">
+                  Page <span class="font-semibold text-slate-900">{{ users_page.number }}</span>
+                  of <span class="font-semibold text-slate-900">{{ users_page.paginator.num_pages }}</span>
+                </div>
                 {% endif %}
               </div>
+              <div class="overflow-x-auto">
+                <table class="w-full min-w-[1160px] text-sm">
+                  <thead class="bg-slate-50 text-slate-700">
+                    <tr>
+                      <th class="px-4 py-3 text-left">Employee ID</th>
+                      <th class="px-4 py-3 text-left">Full Name</th>
+                      <th class="px-4 py-3 text-left">Department</th>
+                      <th class="px-4 py-3 text-left">Role</th>
+                      <th class="px-4 py-3 text-left">Status</th>
+                      <th class="px-4 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for u in users_page %}
+                    <tr class="border-t border-slate-200 hover:bg-slate-50">
+                      <td class="px-4 py-3 font-medium">{{ u.username }}</td>
+                      <td class="px-4 py-3">
+                        {% if u.employeeprofile %}
+                          {{ u.employeeprofile.full_name }}
+                        {% else %}
+                          <span class="text-slate-400 italic">—</span>
+                        {% endif %}
+                      </td>
+                      <td class="px-4 py-3">
+                        {% if u.employeeprofile %}
+                          {{ u.employeeprofile.department }}
+                        {% else %}
+                          <span class="text-slate-400 italic">—</span>
+                        {% endif %}
+                      </td>
+                      <td class="px-4 py-3">
+                        {% if u.is_superuser %}
+                          <span class="px-2 py-1 rounded-lg text-xs bg-violet-100 text-violet-700">Admin</span>
+                        {% else %}
+                          <span class="px-2 py-1 rounded-lg text-xs bg-blue-100 text-blue-700">Staff</span>
+                        {% endif %}
+                      </td>
+                      <td class="px-4 py-3">
+                        {% if u.is_active %}
+                          <span class="px-2 py-1 rounded-lg text-xs bg-emerald-100 text-emerald-700">Active</span>
+                        {% else %}
+                          <span class="px-2 py-1 rounded-lg text-xs bg-rose-100 text-rose-700">Disabled</span>
+                        {% endif %}
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        {% if u.id == request.user.id %}
+                          <span class="text-slate-400 text-sm">Current</span>
+                        {% else %}
+                          <div class="inline-flex items-center gap-2 flex-wrap justify-end">
+                            <form method="post" class="inline">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="toggle_user_active">
+                              <input type="hidden" name="user_id" value="{{ u.id }}">
+                              <button type="submit"
+                                      class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700">
+                                Toggle Active
+                              </button>
+                            </form>
+                            <form method="post" class="inline"
+                                  onsubmit="return confirm(
+                                    'Change ADMIN role for {{ u.username }}?\n\n' +
+                                    '• Admin = full permissions\n' +
+                                    '• Staff = normal staff access\n\n' +
+                                    'Continue?'
+                                  );">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="toggle_user_admin">
+                              <input type="hidden" name="user_id" value="{{ u.id }}">
+                              <button type="submit"
+                                      class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white">
+                                {% if u.is_superuser %}Remove Admin{% else %}Make Admin{% endif %}
+                              </button>
+                            </form>
+                            <form method="post" class="inline"
+                                  onsubmit="return confirm(
+                                    'REMOVE STAFF = DELETE ACCOUNT\n\n' +
+                                    'User: {{ u.username }}\n\n' +
+                                    'This will PERMANENTLY:\n' +
+                                    '• Delete this user from the database\n' +
+                                    '• Delete employee profile (if exists)\n' +
+                                    '• Remove access immediately\n\n' +
+                                    'THIS CANNOT BE UNDONE.\n\n' +
+                                    'Continue?'
+                                  );">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="remove_staff">
+                              <input type="hidden" name="user_id" value="{{ u.id }}">
+                              <button type="submit"
+                                      class="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white">
+                                Remove Staff
+                              </button>
+                            </form>
+                          </div>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                      <td colspan="6" class="px-4 py-10 text-center text-slate-500">
+                        No users found.
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            {% endif %}
-
           </div>
-        </div>
-
-        <div class="lg:col-span-4">
-          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
-            <div class="flex items-start justify-between gap-3">
+          <div class="lg:col-span-4">
+            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
               <div>
-                <h3 class="text-base font-semibold text-slate-900">Add Material</h3>
-                <p class="text-sm text-slate-500">Insert directly into MaterialList.</p>
+                <h3 class="text-base font-semibold text-slate-900">Add Employee</h3>
               </div>
-
-              <button type="button" id="open-csv-upload"
-                class="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white whitespace-nowrap">
-                CSV Upload
-              </button>
-            </div>
-
-            <form method="post" class="mt-4 space-y-3">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="add_material">
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Part Code</label>
-                <input type="text" name="mat_partcode" required
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Part Name</label>
-                <input type="text" name="mat_partname"
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Maker</label>
-                <input type="text" name="mat_maker"
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Unit</label>
-                <select name="unit"
-                        class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="pc">pc</option>
-                  <option value="pcs">pcs</option>
-                  <option value="m">m</option>
-                  <option value="g">g</option>
-                  <option value="kg">kg</option>
-                </select>
-              </div>
-
-              <div class="pt-2">
-                <button type="submit"
-                        class="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-      </div>
-      {% endif %}
-
-      {% if tab == "users" %}
-
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        <div class="lg:col-span-8">
-          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-
-            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 class="text-lg font-semibold text-slate-900">User Management</h2>
-              </div>
-
-              <form method="get" class="flex items-center gap-2">
-                <input type="hidden" name="tab" value="users">
-                <input
-                  type="text"
-                  name="uq"
-                  value="{{ uq|default:'' }}"
-                  placeholder="Search employee_id / name / department..."
-                  class="h-10 w-80 max-w-full px-3 rounded-xl bg-white border border-slate-300 text-slate-900
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button class="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white" type="submit">
-                  Search
-                </button>
-              </form>
-            </div>
-
-            <div class="px-5 py-3 border-b border-slate-200 text-sm text-slate-600 flex items-center justify-between gap-4 flex-wrap">
-              <div>Total: <span class="font-semibold text-slate-900">{{ user_total }}</span></div>
-              {% if users_page %}
-              <div class="text-slate-500">
-                Page <span class="font-semibold text-slate-900">{{ users_page.number }}</span>
-                of <span class="font-semibold text-slate-900">{{ users_page.paginator.num_pages }}</span>
-              </div>
-              {% endif %}
-            </div>
-
-            <div class="overflow-x-auto">
-              <table class="w-full min-w-[1160px] text-sm">
-                <thead class="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th class="px-4 py-3 text-left">Employee ID</th>
-                    <th class="px-4 py-3 text-left">Full Name</th>
-                    <th class="px-4 py-3 text-left">Department</th>
-                    <th class="px-4 py-3 text-left">Role</th>
-                    <th class="px-4 py-3 text-left">Status</th>
-                    <th class="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {% for u in users_page %}
-                  <tr class="border-t border-slate-200 hover:bg-slate-50">
-                    <td class="px-4 py-3 font-medium">{{ u.username }}</td>
-
-                    <td class="px-4 py-3">
-                      {% if u.employeeprofile %}
-                        {{ u.employeeprofile.full_name }}
-                      {% else %}
-                        <span class="text-slate-400 italic">—</span>
-                      {% endif %}
-                    </td>
-
-                    <td class="px-4 py-3">
-                      {% if u.employeeprofile %}
-                        {{ u.employeeprofile.department }}
-                      {% else %}
-                        <span class="text-slate-400 italic">—</span>
-                      {% endif %}
-                    </td>
-
-                    <td class="px-4 py-3">
-                      {% if u.is_superuser %}
-                        <span class="px-2 py-1 rounded-lg text-xs bg-violet-100 text-violet-700">Admin</span>
-                      {% else %}
-                        <span class="px-2 py-1 rounded-lg text-xs bg-blue-100 text-blue-700">Staff</span>
-                      {% endif %}
-                    </td>
-
-                    <td class="px-4 py-3">
-                      {% if u.is_active %}
-                        <span class="px-2 py-1 rounded-lg text-xs bg-emerald-100 text-emerald-700">Active</span>
-                      {% else %}
-                        <span class="px-2 py-1 rounded-lg text-xs bg-rose-100 text-rose-700">Disabled</span>
-                      {% endif %}
-                    </td>
-
-                    <td class="px-4 py-3 text-right">
-                      {% if u.id == request.user.id %}
-                        <span class="text-slate-400 text-sm">Current</span>
-                      {% else %}
-                        <div class="inline-flex items-center gap-2 flex-wrap justify-end">
-
-                          <form method="post" class="inline">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="toggle_user_active">
-                            <input type="hidden" name="user_id" value="{{ u.id }}">
-                            <button type="submit"
-                                    class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700">
-                              Toggle Active
-                            </button>
-                          </form>
-
-                          <form method="post" class="inline"
-                                onsubmit="return confirm(
-                                  'Change ADMIN role for {{ u.username }}?\n\n' +
-                                  '• Admin = full permissions\n' +
-                                  '• Staff = normal staff access\n\n' +
-                                  'Continue?'
-                                );">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="toggle_user_admin">
-                            <input type="hidden" name="user_id" value="{{ u.id }}">
-                            <button type="submit"
-                                    class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white">
-                              {% if u.is_superuser %}Remove Admin{% else %}Make Admin{% endif %}
-                            </button>
-                          </form>
-
-                          <form method="post" class="inline"
-                                onsubmit="return confirm(
-                                  'REMOVE STAFF = DELETE ACCOUNT\n\n' +
-                                  'User: {{ u.username }}\n\n' +
-                                  'This will PERMANENTLY:\n' +
-                                  '• Delete this user from the database\n' +
-                                  '• Delete employee profile (if exists)\n' +
-                                  '• Remove access immediately\n\n' +
-                                  'THIS CANNOT BE UNDONE.\n\n' +
-                                  'Continue?'
-                                );">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="remove_staff">
-                            <input type="hidden" name="user_id" value="{{ u.id }}">
-                            <button type="submit"
-                                    class="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white">
-                              Remove Staff
-                            </button>
-                          </form>
-
-                        </div>
-                      {% endif %}
-                    </td>
-                  </tr>
-                  {% empty %}
-                  <tr>
-                    <td colspan="6" class="px-4 py-10 text-center text-slate-500">
-                      No users found.
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-
-              </table>
-            </div>
-
-            {% if users_page and users_page.paginator.num_pages > 1 %}
-            <div class="px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
-              <div class="text-sm text-slate-500">
-                Showing
-                <span class="font-medium text-slate-900">{{ users_page.start_index }}</span>–
-                <span class="font-medium text-slate-900">{{ users_page.end_index }}</span>
-                of
-                <span class="font-medium text-slate-900">{{ users_page.paginator.count }}</span>
-              </div>
-
-              <div class="flex items-center gap-2 flex-wrap">
-                {% if users_page.has_previous %}
-                  <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
-                     href="?tab=users&uq={{ uq|urlencode }}&upage={{ users_page.previous_page_number }}">
-                    ← Prev
-                  </a>
-                {% else %}
-                  <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
-                    ← Prev
-                  </span>
-                {% endif %}
-
-                {% for p in users_page.paginator.page_range %}
-                  {% if p == users_page.number %}
-                    <span class="px-3 py-2 rounded-xl bg-blue-600 text-white text-sm">{{ p }}</span>
-                  {% elif p >= users_page.number|add:-2 and p <= users_page.number|add:2 %}
-                    <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
-                       href="?tab=users&uq={{ uq|urlencode }}&upage={{ p }}">{{ p }}</a>
-                  {% endif %}
-                {% endfor %}
-
-                {% if users_page.has_next %}
-                  <a class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm"
-                     href="?tab=users&uq={{ uq|urlencode }}&upage={{ users_page.next_page_number }}">
-                    Next →
-                  </a>
-                {% else %}
-                  <span class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
-                    Next →
-                  </span>
-                {% endif %}
-              </div>
-            </div>
-            {% endif %}
-
-          </div>
-        </div>
-
-        <div class="lg:col-span-4">
-          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
-            <div>
-              <h3 class="text-base font-semibold text-slate-900">Add Employee</h3>
-            </div>
-
-            <form method="post" class="mt-4 space-y-3">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="add_employee">
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Employee ID</label>
-                <input type="text" name="employee_id" required
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Full Name</label>
-                <input type="text" name="full_name" required
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Department</label>
-                <input type="text" name="department" required
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-
-              <div>
-                <label class="text-sm font-medium text-slate-700">Password</label>
-                <input type="password" name="password" required
-                       class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-
-              <div class="pt-2">
-                <button type="submit"
-                        class="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
-                  Create Employee
-                </button>
-              </div>
-            </form>
-
-          </div>
-        </div>
-
-      </div>
-
-      {% endif %}
-
-      {% if tab == "forecast" %}
-
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        <div class="lg:col-span-8 space-y-6">
-          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-
-            <div class="px-5 py-4 border-b border-slate-200 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div class="space-y-2">
-                <h2 class="text-lg font-semibold text-slate-900">Forecast Records</h2>
-                <div class="flex flex-wrap gap-2">
-                  <button type="button" id="open-previous-forecast"
-                          class="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 hover:bg-slate-100">
-                    Previous Forecast
-                  </button>
-                  <button type="button" id="open-actual-delivered"
-                          class="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 hover:bg-slate-100">
-                    Actual Delivered
+              <form method="post" class="mt-4 space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_employee">
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Employee ID</label>
+                  <input type="text" name="employee_id" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Full Name</label>
+                  <input type="text" name="full_name" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Department</label>
+                  <input type="text" name="department" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700">Password</label>
+                  <input type="password" name="password" required
+                         class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="pt-2">
+                  <button type="submit"
+                          class="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+                    Create Employee
                   </button>
                 </div>
-              </div>
-
-              <form method="get" class="flex flex-wrap items-center gap-2">
-                <input type="hidden" name="tab" value="forecast">
-                <input
-                  type="text"
-                  name="fq"
-                  value="{{ fq|default:'' }}"
-                  placeholder="Search part_number / part_name / customer..."
-                  class="h-10 w-44 lg:w-64 max-w-full px-3 rounded-xl bg-white border border-slate-300 text-slate-900
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <select
-                  name="from_month"
-                  class="h-10 px-3 rounded-xl bg-white border border-slate-300 text-sm text-slate-900
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">From month</option>
-                  {% for m in forecast_month_choices %}
-                    <option value="{{ m }}" {% if forecast_from_month == m %}selected{% endif %}>{{ m }}</option>
-                  {% endfor %}
-                </select>
-                <select
-                  name="to_month"
-                  class="h-10 px-3 rounded-xl bg-white border border-slate-300 text-sm text-slate-900
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">To month</option>
-                  {% for m in forecast_month_choices %}
-                    <option value="{{ m }}" {% if forecast_to_month == m %}selected{% endif %}>{{ m }}</option>
-                  {% endfor %}
-                </select>
-                <button class="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm" type="submit">
-                  Search / Filter
-                </button>
               </form>
             </div>
-
-            <div class="px-5 py-3 border-b border-slate-200 text-sm text-slate-600 flex items-center justify-between gap-4 flex-wrap">
-              <div class="space-y-1">
-                <div>Total: <span class="font-semibold text-slate-900">{{ forecasts_total }}</span></div>
-                {% if forecast_selected_range_label %}
-                  <div class="text-xs text-slate-500">
-                    Selected months:
-                    <span class="font-semibold text-slate-900">{{ forecast_selected_range_label }}</span>
-                    {% if forecast_selected_total_qty is not None %}
-                      · Total Quantity:
-                      <span class="font-semibold text-slate-900">
-                        {{ forecast_selected_total_qty|floatformat:2 }}
-                      </span>
-                    {% endif %}
-                    {% if forecast_selected_total_amount is not None %}
-                      · Total Amount:
-                      <span class="font-semibold text-slate-900">
-                        {{ forecast_selected_total_amount|floatformat:2 }}
-                      </span>
-                    {% endif %}
-                  </div>
-                {% endif %}
-              </div>
-              <a href="{% url 'admin:app_forecast_add' %}"
-                 class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm">
-                Add Forecast (Admin)
-              </a>
-            </div>
-
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th class="px-4 py-3 text-left">Part Number</th>
-                    <th class="px-4 py-3 text-left">Part Name</th>
-                    <th class="px-4 py-3 text-left">Customer</th>
-                    <th class="px-4 py-3 text-left">Months</th>
-                    <th class="px-4 py-3 text-right">Unit Price</th>
-                    <th class="px-4 py-3 text-right">Quantity</th>
-                    <th class="px-4 py-3 text-right">Total Quantity</th>
-                    <th class="px-4 py-3 text-right">Total Amount</th>
-                    <th class="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {% for f in forecasts_list %}
-                  <tr class="border-t border-slate-200 hover:bg-slate-50">
-                    <td class="px-4 py-3 font-medium">{{ f.part_number }}</td>
-                    <td class="px-4 py-3">{{ f.part_name }}</td>
-                    <td class="px-4 py-3">
-                      {% if f.customer %}
-                        {{ f.customer.customer_name }}
-                      {% else %}
-                        <span class="text-slate-400 italic">—</span>
-                      {% endif %}
-                    </td>
-                    <td class="px-4 py-3">{{ f.months_display }}</td>
-                    <td class="px-4 py-3 text-right">{{ f.base_unit_price|floatformat:4 }}</td>
-                    <td class="px-4 py-3 text-right">{{ f.latest_quantity|floatformat:2 }}</td>
-                    <td class="px-4 py-3 text-right">{{ f.total_quantity|floatformat:2 }}</td>
-                    <td class="px-4 py-3 text-right">{{ f.total_amount|floatformat:2 }}</td>
-                    <td class="px-4 py-3 text-right">
-                      <button type="button"
-                              class="edit-forecast px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white"
-                              data-id="{{ f.id }}"
-                              data-part-number="{{ f.part_number|escapejs }}"
-                              data-part-name="{{ f.part_name|escapejs }}"
-                              data-customer-id="{{ f.customer_id|default:'' }}">
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                  {% empty %}
-                  <tr>
-                    <td colspan="5" class="px-4 py-10 text-center text-slate-500">
-                      No forecasts found. <a href="{% url 'admin:app_forecast_add' %}" class="text-blue-600 hover:underline">Add one</a> or use the <a href="/api/docs" class="text-blue-600 hover:underline">API</a>.
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-
-          </div>
-
-        </div>
-
-        <div class="lg:col-span-4">
-          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 lg:sticky lg:top-6">
-            <div>
-              <h3 class="text-base font-semibold text-slate-900">Forecast API</h3>
-              <p class="mt-2 text-sm text-slate-600">
-                Manage forecasts via REST API (POST, GET, PUT, DELETE) at <code class="text-xs bg-slate-100 px-1 rounded">/api/forecasts</code>
-              </p>
-              <div class="mt-3">
-                <a href="/api/docs" target="_blank"
-                   class="inline-block px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm">
-                  API Documentation →
-                </a>
-              </div>
-              <div class="mt-3">
-                <a href="{% url 'admin:app_forecast_changelist' %}"
-                   class="inline-block px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm">
-                  Manage in Django Admin
-                </a>
-              </div>
-            </div>
           </div>
         </div>
+        {% endif %}
+
+        <!-- Forecast content will be included here from separate templates -->
+        {% if tab == "forecast" or tab == "previous_forecast" or tab == "forecast_summary" %}
+          {% include "admin/forecast_pages.html" %}
+        {% endif %}
 
       </div>
-
-      {% endif %}
-
-        </div>  <!-- end main column -->
-      </div>    <!-- end layout flex -->
-
     </div>
+
   </div>
 
   <div id="panel-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
@@ -975,7 +943,7 @@
               bg-white text-slate-900 border-l border-slate-200 z-50
               translate-x-full transition-transform duration-200 flex flex-col">
 
-    <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+    <div class="p-4 border-b border-slate-200 flex justify-between items-center"> 
       <div class="font-semibold text-blue-700">Customer Details</div>
       <button id="panel-close"
               class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
@@ -1002,22 +970,62 @@
           Close
         </button>
       </div>
-
       <form method="post"
             action="{% url 'app:admin_csv_upload' %}"
             enctype="multipart/form-data"
             class="p-5 space-y-4">
         {% csrf_token %}
         <input type="hidden" name="next" value="{% url 'app:admin_dashboard' %}?tab=materials&mq={{ mq|urlencode }}">
-
         <div>
           <label class="text-sm font-medium text-slate-700">CSV File</label>
           <input type="file" name="csv_file" required
                  class="mt-2 w-full rounded-xl border border-slate-300 p-2 bg-white">
         </div>
-
         <div class="flex justify-end gap-2">
           <button type="button" id="csv-cancel"
+                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+            Upload
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Forecast CSV Upload Modal -->
+  <div id="forecast-csv-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+  <div id="forecast-csv-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div>
+          <div class="font-semibold text-slate-900">Upload Forecast CSV</div>
+          <div class="text-xs text-slate-500">Create / update forecast records</div>
+        </div>
+        <button type="button" id="forecast-csv-close"
+                class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+          Close
+        </button>
+      </div>
+      <form method="post"
+            action="{% url 'app:admin_forecast_csv_upload' %}"
+            enctype="multipart/form-data"
+            class="p-5 space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'app:admin_dashboard' %}?tab=forecast">
+        <div>
+          <label class="text-sm font-medium text-slate-700">CSV File</label>
+          <input type="file" name="csv_file" required
+                 class="mt-2 w-full rounded-xl border border-slate-300 p-2 bg-white">
+        </div>
+        <p class="text-xs text-slate-500">
+          Required columns per row: customer_name, part_number, part_name, date (or month+year), unit_price, quantity.
+        </p>
+        <div class="flex justify-end gap-2">
+          <button type="button" id="forecast-csv-cancel"
                   class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
             Cancel
           </button>
@@ -1044,33 +1052,28 @@
           Close
         </button>
       </div>
-
       <form method="post" class="p-5 space-y-4">
         {% csrf_token %}
         <input type="hidden" name="action" value="update_material">
         <input type="hidden" name="mat_id" id="edit-mat-id">
-
         <div>
           <label class="text-sm font-medium text-slate-700">Part Code</label>
           <input type="text" name="mat_partcode" id="edit-partcode" required
                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
         </div>
-
         <div>
           <label class="text-sm font-medium text-slate-700">Part Name</label>
           <input type="text" name="mat_partname" id="edit-partname"
                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
         </div>
-
         <div>
           <label class="text-sm font-medium text-slate-700">Maker</label>
           <input type="text" name="mat_maker" id="edit-maker"
                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
         </div>
-
         <div>
           <label class="text-sm font-medium text-slate-700">Unit</label>
           <select name="unit" id="edit-unit"
@@ -1083,7 +1086,6 @@
             <option value="kg">kg</option>
           </select>
         </div>
-
         <div class="flex justify-end gap-2">
           <button type="button" id="edit-cancel"
                   class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
@@ -1098,224 +1100,224 @@
     </div>
   </div>
 
-  <div id="edit-forecast-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+  <!-- Forecast Panel - Add this AFTER the edit-modal div -->
+  <div id="forecast-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
 
-  <div id="edit-forecast-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
-      <div class="px-5 py-4 border-b border-slate-200 flex justify-between items-center">
-        <div>
-          <div class="font-semibold text-slate-900">Edit Forecast</div>
-          <div class="text-xs text-slate-500">Update fields then save</div>
-        </div>
-        <button type="button" id="edit-forecast-close"
-                class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
-          Close
-        </button>
+  <div id="forecast-panel"
+       class="fixed top-0 right-0 h-full w-full sm:w-[500px]
+              bg-white text-slate-900 border-l border-slate-200 z-50
+              translate-x-full transition-transform duration-200 flex flex-col">
+
+    <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+      <div>
+        <div class="font-semibold text-blue-700">Add Forecast</div>
+        <div class="text-xs text-slate-500">Create new forecast record</div>
       </div>
+      <button id="forecast-close"
+              class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+        Close
+      </button>
+    </div>
 
-      <form method="post" class="p-5 space-y-4 overflow-y-auto flex-1">
+    <div id="forecast-content" class="flex-1 overflow-y-auto p-6">
+      <form method="post" class="space-y-5" id="forecast-form">
         {% csrf_token %}
-        <input type="hidden" name="action" value="update_forecast">
-        <input type="hidden" name="forecast_id" id="edit-forecast-id">
+        <input type="hidden" name="action" value="add_forecast">
 
         <div>
-          <label class="text-sm font-medium text-slate-700">Part Number</label>
-          <input type="text" name="part_number" id="edit-forecast-part-number" required
+          <label class="text-sm font-medium text-slate-700">Customer Name</label>
+          <input type="text" name="customer_name" id="forecast-customer-name" required
                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter customer name">
         </div>
 
         <div>
           <label class="text-sm font-medium text-slate-700">Part Name</label>
-          <input type="text" name="part_name" id="edit-forecast-part-name" required
+          <input type="text" name="part_name" id="forecast-part-name" required
                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter part name">
         </div>
 
         <div>
-          <label class="text-sm font-medium text-slate-700">Customer</label>
-          <select name="customer_id" id="edit-forecast-customer"
-                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-            <option value="">— No customer —</option>
-            {% for c in all_customers %}
-            <option value="{{ c.id }}">{{ c.customer_name }}</option>
-            {% endfor %}
-          </select>
+          <label class="text-sm font-medium text-slate-700">Part Number</label>
+          <input type="text" name="part_number" id="forecast-part-number" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter part number">
         </div>
 
         <div>
-          <label class="text-sm font-medium text-slate-700">Monthly Forecasts (JSON)</label>
-          <textarea name="monthly_forecasts" id="edit-forecast-monthly" rows="6"
-                    placeholder='[{"date": "Jan-2026", "unit_price": 0.13, "quantity": 1000}]'
-                    class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-          <p class="mt-1 text-xs text-slate-500">Format: array of {date, unit_price, quantity}</p>
+          <label class="text-sm font-medium text-slate-700">Month/Year</label>
+          <div class="grid grid-cols-2 gap-3">
+            <select name="month" id="forecast-month" required
+                    class="px-3 py-2 rounded-xl border border-slate-300 bg-white
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="">Select Month</option>
+              <option value="January">January</option>
+              <option value="February">February</option>
+              <option value="March">March</option>
+              <option value="April">April</option>
+              <option value="May">May</option>
+              <option value="June">June</option>
+              <option value="July">July</option>
+              <option value="August">August</option>
+              <option value="September">September</option>
+              <option value="October">October</option>
+              <option value="November">November</option>
+              <option value="December">December</option>
+            </select>
+            <select name="year" id="forecast-year" required
+                    class="px-3 py-2 rounded-xl border border-slate-300 bg-white
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="">Select Year</option>
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+              <option value="2028">2028</option>
+            </select>
+          </div>
         </div>
 
-        <div class="flex justify-end gap-2 pt-2">
+        <div>
+          <label class="text-sm font-medium text-slate-700">Unit Price ($)</label>
+          <input type="number" name="unit_price" id="forecast-unit-price" step="any" min="0" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="0.00">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Quantity</label>
+          <input type="number" name="quantity" id="forecast-quantity" min="1" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter quantity">
+        </div>
+
+        <div class="pt-4 border-t border-slate-200 flex justify-end gap-2">
+          <button type="button" id="forecast-cancel"
+                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
+            Save Forecast
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Forecast Panel -->
+  <div id="edit-forecast-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+  <div id="edit-forecast-panel"
+       class="fixed top-0 right-0 h-full w-full sm:w-[500px]
+              bg-white text-slate-900 border-l border-slate-200 z-50
+              translate-x-full transition-transform duration-200 flex flex-col">
+
+    <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+      <div>
+        <div class="font-semibold text-blue-700">Edit Forecast</div>
+        <div class="text-xs text-slate-500">Update forecast record</div>
+      </div>
+      <button id="edit-forecast-close"
+              class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+        Close
+      </button>
+    </div>
+
+    <div id="edit-forecast-content" class="flex-1 overflow-y-auto p-6">
+      <form method="post" class="space-y-5" id="edit-forecast-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_forecast">
+        <input type="hidden" name="original_customer_name" id="edit-original-customer" value="">
+        <input type="hidden" name="original_part_number" id="edit-original-part-number" value="">
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Customer Name</label>
+          <input type="text" name="customer_name" id="edit-customer-name" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter customer name">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Part Name</label>
+          <input type="text" name="part_name" id="edit-part-name" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter part name">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Part Number</label>
+          <input type="text" name="part_number" id="edit-part-number" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter part number">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Month/Year</label>
+          <div class="grid grid-cols-2 gap-3">
+            <select name="month" id="edit-month" required
+                    class="px-3 py-2 rounded-xl border border-slate-300 bg-white
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="">Select Month</option>
+              <option value="January">January</option>
+              <option value="February">February</option>
+              <option value="March">March</option>
+              <option value="April">April</option>
+              <option value="May">May</option>
+              <option value="June">June</option>
+              <option value="July">July</option>
+              <option value="August">August</option>
+              <option value="September">September</option>
+              <option value="October">October</option>
+              <option value="November">November</option>
+              <option value="December">December</option>
+            </select>
+            <select name="year" id="edit-year" required
+                    class="px-3 py-2 rounded-xl border border-slate-300 bg-white
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="">Select Year</option>
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+              <option value="2028">2028</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Unit Price ($)</label>
+          <input type="number" name="unit_price" id="edit-unit-price" step="any" min="0" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="0.00">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Quantity</label>
+          <input type="number" name="quantity" id="edit-quantity" min="1" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter quantity">
+        </div>
+
+        <div class="pt-4 border-t border-slate-200 flex justify-end gap-2">
           <button type="button" id="edit-forecast-cancel"
                   class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
             Cancel
           </button>
           <button type="submit"
                   class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
-            Save Changes
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div id="previous-forecast-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
-
-  <div id="previous-forecast-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
-      <div class="px-5 py-4 border-b border-slate-200 flex justify-between items-center">
-        <div>
-          <div class="font-semibold text-slate-900">Previous Forecast</div>
-          <div class="text-xs text-slate-500">Store previous forecast per part (JSON rows per month).</div>
-        </div>
-        <button type="button" id="previous-forecast-close"
-                class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
-          Close
-        </button>
-      </div>
-
-      <form method="post" class="p-5 space-y-4 overflow-y-auto flex-1">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="save_previous_forecast">
-
-        <div>
-          <label class="text-sm font-medium text-slate-700">Forecast / Part</label>
-          <select name="forecast_id" required
-                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-            <option value="">Select part number…</option>
-            {% for f in forecasts_list %}
-            <option value="{{ f.id }}">{{ f.part_number }} — {{ f.part_name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div>
-          <label class="text-sm font-medium text-slate-700">Previous Forecast (JSON)</label>
-          <textarea name="monthly_forecasts" id="previous-forecast-monthly" rows="6"
-                    placeholder='[{"date": "Jan-2025", "unit_price": 0.13, "quantity": 1000}]'
-                    class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-          <p class="mt-1 text-xs text-slate-500">
-            Same format as main forecast: array of objects with <code>date</code>, <code>unit_price</code>, <code>quantity</code>.
-          </p>
-        </div>
-
-        <div class="flex justify-end gap-2 pt-2">
-          <button type="button" id="previous-forecast-cancel"
-                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
-            Cancel
-          </button>
-          <button type="submit"
-                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
-            Save Previous Forecast
-          </button>
-        </div>
-
-        <div class="border-t border-slate-200 pt-4 mt-2 space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-slate-900">Previous Forecast Records</h3>
-            <span class="text-xs text-slate-500">Read-only view of data saved via API</span>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-xs md:text-sm">
-              <thead class="bg-slate-50 text-slate-700">
-                <tr>
-                  <th class="px-3 py-2 text-left">Part Number</th>
-                  <th class="px-3 py-2 text-left">Part Name</th>
-                  <th class="px-3 py-2 text-left">Months</th>
-                  <th class="px-3 py-2 text-right">Unit Price</th>
-                  <th class="px-3 py-2 text-right">Quantity</th>
-                  <th class="px-3 py-2 text-right">Total Qty</th>
-                  <th class="px-3 py-2 text-right">Total Amt</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {% for p in previous_forecasts_list %}
-                <tr class="border-t border-slate-200">
-                  <td class="px-3 py-2 font-medium">{{ p.part_number }}</td>
-                  <td class="px-3 py-2">{{ p.part_name }}</td>
-                  <td class="px-3 py-2">{{ p.months }}</td>
-                  <td class="px-3 py-2 text-right">{{ p.unit_price|floatformat:4 }}</td>
-                  <td class="px-3 py-2 text-right">{{ p.quantity|floatformat:2 }}</td>
-                  <td class="px-3 py-2 text-right">{{ p.total_quantity|floatformat:2 }}</td>
-                  <td class="px-3 py-2 text-right">{{ p.total_amount|floatformat:2 }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                  <td colspan="7" class="px-3 py-6 text-center text-slate-500">
-                    No previous forecasts saved yet. Use this form or the API to add data.
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div id="actual-delivered-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
-
-  <div id="actual-delivered-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
-      <div class="px-5 py-4 border-b border-slate-200 flex justify-between items-center">
-        <div>
-          <div class="font-semibold text-slate-900">Actual Delivered</div>
-          <div class="text-xs text-slate-500">Store actual delivered quantities per month.</div>
-        </div>
-        <button type="button" id="actual-delivered-close"
-                class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
-          Close
-        </button>
-      </div>
-
-      <form method="post" class="p-5 space-y-4 overflow-y-auto flex-1">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="save_actual_delivered">
-
-        <div>
-          <label class="text-sm font-medium text-slate-700">Forecast / Part</label>
-          <select name="forecast_id" required
-                  class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-            <option value="">Select part number…</option>
-            {% for f in forecasts_list %}
-            <option value="{{ f.id }}">{{ f.part_number }} — {{ f.part_name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div>
-          <label class="text-sm font-medium text-slate-700">Actual Delivered (JSON)</label>
-          <textarea name="monthly_forecasts" id="actual-delivered-monthly" rows="6"
-                    placeholder='[{"date": "Jan-2025", "unit_price": 0.13, "quantity": 950}]'
-                    class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-          <p class="mt-1 text-xs text-slate-500">
-            Same format as main forecast: array of objects with <code>date</code>, <code>unit_price</code>, <code>quantity</code>.
-          </p>
-        </div>
-
-        <div class="flex justify-end gap-2 pt-2">
-          <button type="button" id="actual-delivered-cancel"
-                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
-            Cancel
-          </button>
-          <button type="submit"
-                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white">
-            Save Actual Delivered
+            Update Forecast
           </button>
         </div>
       </form>
@@ -1323,6 +1325,23 @@
   </div>
 
   <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const box = document.getElementById("flash-messages");
+      if (!box) return;
+
+      setTimeout(() => {
+        box.querySelectorAll(".flash-msg").forEach((el, idx) => {
+          setTimeout(() => {
+            el.classList.add("opacity-0");
+          }, idx * 120);
+        });
+
+        setTimeout(() => {
+          box.remove();
+        }, 700);
+      }, 2000);
+    });
+
     const partMaps = [
       {% for c in customers %}
         {{ c.part_code_map_json|safe }},
@@ -1451,6 +1470,30 @@
     if (csvCancel) csvCancel.addEventListener("click", closeCSVModal);
     if (csvBackdrop) csvBackdrop.addEventListener("click", closeCSVModal);
 
+    // Forecast CSV modal
+    const forecastCsvBackdrop = document.getElementById("forecast-csv-backdrop");
+    const forecastCsvModal = document.getElementById("forecast-csv-modal");
+    const openForecastCsvBtn = document.getElementById("open-forecast-csv");
+    const forecastCsvClose = document.getElementById("forecast-csv-close");
+    const forecastCsvCancel = document.getElementById("forecast-csv-cancel");
+
+    function openForecastCsvModal() {
+      if (!forecastCsvModal || !forecastCsvBackdrop) return;
+      forecastCsvModal.classList.remove("hidden");
+      forecastCsvBackdrop.classList.remove("hidden");
+    }
+
+    function closeForecastCsvModal() {
+      if (!forecastCsvModal || !forecastCsvBackdrop) return;
+      forecastCsvModal.classList.add("hidden");
+      forecastCsvBackdrop.classList.add("hidden");
+    }
+
+    if (openForecastCsvBtn) openForecastCsvBtn.addEventListener("click", openForecastCsvModal);
+    if (forecastCsvClose) forecastCsvClose.addEventListener("click", closeForecastCsvModal);
+    if (forecastCsvCancel) forecastCsvCancel.addEventListener("click", closeForecastCsvModal);
+    if (forecastCsvBackdrop) forecastCsvBackdrop.addEventListener("click", closeForecastCsvModal);
+
     const editBackdrop = document.getElementById("edit-backdrop");
     const editModal = document.getElementById("edit-modal");
     const editClose = document.getElementById("edit-close");
@@ -1496,46 +1539,7 @@
       });
     });
 
-    const FORECASTS_MONTHLY = {{ forecasts_monthly_json|safe }};
-    const editForecastBackdrop = document.getElementById("edit-forecast-backdrop");
-    const editForecastModal = document.getElementById("edit-forecast-modal");
-    const editForecastClose = document.getElementById("edit-forecast-close");
-    const editForecastCancel = document.getElementById("edit-forecast-cancel");
-
-    function openEditForecastModal(data) {
-      if (!editForecastModal || !editForecastBackdrop) return;
-      document.getElementById("edit-forecast-id").value = data.id || "";
-      document.getElementById("edit-forecast-part-number").value = data.partNumber || "";
-      document.getElementById("edit-forecast-part-name").value = data.partName || "";
-      document.getElementById("edit-forecast-customer").value = data.customerId || "";
-      const monthly = FORECASTS_MONTHLY && FORECASTS_MONTHLY[String(data.id)] !== undefined
-        ? FORECASTS_MONTHLY[String(data.id)]
-        : [];
-      document.getElementById("edit-forecast-monthly").value = JSON.stringify(monthly, null, 2);
-      editForecastModal.classList.remove("hidden");
-      editForecastBackdrop.classList.remove("hidden");
-    }
-    function closeEditForecastModal() {
-      if (!editForecastModal || !editForecastBackdrop) return;
-      editForecastModal.classList.add("hidden");
-      editForecastBackdrop.classList.add("hidden");
-    }
-    if (editForecastClose) editForecastClose.addEventListener("click", closeEditForecastModal);
-    if (editForecastCancel) editForecastCancel.addEventListener("click", closeEditForecastModal);
-    if (editForecastBackdrop) editForecastBackdrop.addEventListener("click", closeEditForecastModal);
-
-    document.querySelectorAll(".edit-forecast").forEach(btn => {
-      btn.addEventListener("click", () => {
-        openEditForecastModal({
-          id: btn.dataset.id,
-          partNumber: btn.dataset.partNumber,
-          partName: btn.dataset.partName,
-          customerId: btn.dataset.customerId
-        });
-      });
-    });
-
-    const MASTER_MAP = {{ master_map_json|safe }};
+    window.MASTER_MAP = {{ master_map_json|safe }};
 
     const mpCode = document.getElementById("mat-partcode-input");
     const mpName = document.getElementById("mat-partname");
@@ -1593,51 +1597,51 @@
 
     recalcTotal();
 
-    const prevBackdrop = document.getElementById("previous-forecast-backdrop");
-    const prevModal = document.getElementById("previous-forecast-modal");
-    const prevOpen = document.getElementById("open-previous-forecast");
-    const prevClose = document.getElementById("previous-forecast-close");
-    const prevCancel = document.getElementById("previous-forecast-cancel");
+    const forecastBackdrop = document.getElementById("forecast-backdrop");
+    const forecastPanel = document.getElementById("forecast-panel");
+    const forecastClose = document.getElementById("forecast-close");
+    const forecastCancel = document.getElementById("forecast-cancel");
+    const openForecastBtn = document.getElementById("open-forecast-form");
 
-    function openPrevModal() {
-      if (!prevBackdrop || !prevModal) return;
-      prevBackdrop.classList.remove("hidden");
-      prevModal.classList.remove("hidden");
+    function openForecastPanel() {
+      if (!forecastPanel || !forecastBackdrop) return;
+      forecastPanel.classList.remove("translate-x-full");
+      forecastBackdrop.classList.remove("hidden");
     }
 
-    function closePrevModal() {
-      if (!prevBackdrop || !prevModal) return;
-      prevBackdrop.classList.add("hidden");
-      prevModal.classList.add("hidden");
+    function closeForecastPanel() {
+      if (!forecastPanel || !forecastBackdrop) return;
+      forecastPanel.classList.add("translate-x-full");
+      forecastBackdrop.classList.add("hidden");
+      
+      // Clear form fields
+      document.getElementById("forecast-customer-name").value = "";
+      document.getElementById("forecast-part-name").value = "";
+      document.getElementById("forecast-part-number").value = "";
+      document.getElementById("forecast-month").value = "";
+      document.getElementById("forecast-year").value = "";
+      document.getElementById("forecast-unit-price").value = "";
+      document.getElementById("forecast-quantity").value = "";
     }
 
-    if (prevOpen) prevOpen.addEventListener("click", openPrevModal);
-    if (prevClose) prevClose.addEventListener("click", closePrevModal);
-    if (prevCancel) prevCancel.addEventListener("click", closePrevModal);
-    if (prevBackdrop) prevBackdrop.addEventListener("click", closePrevModal);
-
-    const actualBackdrop = document.getElementById("actual-delivered-backdrop");
-    const actualModal = document.getElementById("actual-delivered-modal");
-    const actualOpen = document.getElementById("open-actual-delivered");
-    const actualClose = document.getElementById("actual-delivered-close");
-    const actualCancel = document.getElementById("actual-delivered-cancel");
-
-    function openActualModal() {
-      if (!actualBackdrop || !actualModal) return;
-      actualBackdrop.classList.remove("hidden");
-      actualModal.classList.remove("hidden");
+    if (openForecastBtn) {
+      openForecastBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        openForecastPanel();
+      });
     }
 
-    function closeActualModal() {
-      if (!actualBackdrop || !actualModal) return;
-      actualBackdrop.classList.add("hidden");
-      actualModal.classList.add("hidden");
-    }
+    if (forecastClose) forecastClose.addEventListener("click", closeForecastPanel);
+    if (forecastCancel) forecastCancel.addEventListener("click", closeForecastPanel);
+    if (forecastBackdrop) forecastBackdrop.addEventListener("click", closeForecastPanel);
 
-    if (actualOpen) actualOpen.addEventListener("click", openActualModal);
-    if (actualClose) actualClose.addEventListener("click", closeActualModal);
-    if (actualCancel) actualCancel.addEventListener("click", closeActualModal);
-    if (actualBackdrop) actualBackdrop.addEventListener("click", closeActualModal);
+    // Handle forecast form submission
+    const forecastForm = document.getElementById("forecast-form");
+    if (forecastForm) {
+      forecastForm.addEventListener("submit", function(e) {
+
+      });
+    }
   </script>
 
 </body>
