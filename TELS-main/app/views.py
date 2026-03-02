@@ -419,6 +419,152 @@ def _build_forecast_summary(fsq: str = "", fsq_customer: str = ""):
     }
 
 
+def _build_actual_summary(adq: str = "", ad_customer: str = ""):
+    """
+    Build data for the Actual Delivered tab.
+
+    Uses the same row structure as the Forecast Summary tab but reads
+    \"actual_quantity\" from each monthly_forecasts entry.
+    """
+    from datetime import date
+
+    MONTHS_ORDER = {
+        "january": 1, "february": 2, "march": 3, "april": 4,
+        "may": 5, "june": 6, "july": 7, "august": 8,
+        "september": 9, "october": 10, "november": 11, "december": 12,
+    }
+    SHORT_MONTHS = {
+        1: "JAN", 2: "FEB", 3: "MAR", 4: "APR", 5: "MAY", 6: "JUN",
+        7: "JUL", 8: "AUG", 9: "SEPT", 10: "OCT", 11: "NOV", 12: "DEC",
+    }
+
+    def _parse_date_str(date_str):
+        date_str = (date_str or "").strip()
+        if not date_str:
+            return None
+        parts = date_str.split("-")
+        if len(parts) < 2:
+            return None
+        month_name = parts[0].strip().lower()
+        try:
+            year = int(parts[-1].strip())
+        except ValueError:
+            return None
+        month_int = MONTHS_ORDER.get(month_name)
+        if not month_int:
+            return None
+        label = SHORT_MONTHS[month_int]
+        return year, month_int, label
+
+    today = date.today()
+    current_year = today.year
+
+    qs = (
+        Forecast.objects
+        .select_related("customer")
+        .order_by("customer__customer_name", "part_number")
+    )
+
+    if adq:
+        qs = qs.filter(
+            Q(part_number__icontains=adq) | Q(part_name__icontains=adq)
+        )
+    if ad_customer:
+        qs = qs.filter(customer__customer_name=ad_customer)
+
+    rows_by_key = {}
+    months_seen = set()
+    years_seen = set()
+
+    for forecast in qs:
+        monthly = forecast.monthly_forecasts or []
+
+        first_entry = next(
+            (m for m in monthly if isinstance(m, dict)),
+            {}
+        )
+        try:
+            unit_price = float(first_entry.get("unit_price", 0) or 0) if isinstance(first_entry, dict) else 0.0
+        except (TypeError, ValueError):
+            unit_price = 0.0
+
+        customer_name = forecast.customer.customer_name if forecast.customer else "—"
+        key = (customer_name, forecast.part_number)
+
+        row = rows_by_key.get(key)
+        if not row:
+            row = {
+                "customer": customer_name,
+                "part_number": forecast.part_number,
+                "part_name": forecast.part_name,
+                "unit_price": unit_price,
+                "months": {},
+            }
+            rows_by_key[key] = row
+        else:
+            if unit_price:
+                row["unit_price"] = unit_price
+
+        months_map = row["months"]
+
+        for entry in monthly:
+            if not isinstance(entry, dict):
+                continue
+            if "actual_quantity" not in entry:
+                continue
+
+            parsed = _parse_date_str(entry.get("date", ""))
+            if not parsed:
+                continue
+            yr, mo, label = parsed
+            years_seen.add(yr)
+            months_seen.add(label)
+
+            try:
+                qty = float(entry.get("actual_quantity", 0) or 0)
+            except (TypeError, ValueError):
+                qty = 0.0
+
+            months_map[label] = months_map.get(label, 0.0) + qty
+
+    ad_rows = list(rows_by_key.values())
+
+    # Always expose full JAN–DEC for consistency
+    ad_months = [SHORT_MONTHS[i] for i in range(1, 13)]
+
+    from collections import defaultdict as _dd
+
+    ad_total_qty = _dd(float)
+    ad_total_amt = _dd(float)
+
+    for row in ad_rows:
+        up = row["unit_price"]
+        for lbl, qty in row["months"].items():
+            ad_total_qty[lbl] += qty
+            ad_total_amt[lbl] += qty * up
+
+    # Year label: prefer the main year we saw, otherwise current year
+    ad_year = sorted(years_seen)[0] if years_seen else current_year
+
+    ad_customers = list(
+        Forecast.objects.filter(
+            monthly_forecasts__0__actual_quantity__isnull=False
+        )
+        .select_related("customer")
+        .values_list("customer__customer_name", flat=True)
+        .distinct()
+        .order_by("customer__customer_name")
+    )
+
+    return {
+        "ad_rows": ad_rows,
+        "ad_months": ad_months,
+        "ad_total_qty": dict(ad_total_qty),
+        "ad_total_amt": dict(ad_total_amt),
+        "ad_year": ad_year,
+        "ad_customers": ad_customers,
+    }
+
 @never_cache
 @login_required
 @user_passes_test(is_admin)
@@ -670,22 +816,56 @@ def admin_dashboard(request):
                 part_number=part_number
             ).first()
 
+            # If a forecast for this part already exists for the customer,
+            # allow adding a new month as long as the (month, year) combo
+            # does not already exist in its monthly_forecasts.
             if existing_forecast:
-                messages.error(request, f"Forecast for part '{part_number}' already exists for this customer.")
-                return redirect(reverse("app:admin_dashboard") + "?tab=forecast" + ("&fq=" + request.GET.get("fq", "") if request.GET.get("fq") else ""))
+                monthly = existing_forecast.monthly_forecasts or []
 
-            monthly_forecast = [{
-                "date": date_str,
-                "unit_price": unit_price,
-                "quantity": quantity
-            }]
+                # Check for duplicate month/year
+                duplicate = any(
+                    isinstance(m, dict) and str(m.get("date", "")).strip().lower() == date_str.lower()
+                    for m in monthly
+                )
 
-            forecast = Forecast.objects.create(
-                customer=customer,
-                part_number=part_number,
-                part_name=part_name,
-                monthly_forecasts=monthly_forecast
-            )
+                if duplicate:
+                    messages.error(
+                        request,
+                        f"Forecast for part '{part_number}' already exists for {date_str} for this customer."
+                    )
+                    return redirect(
+                        reverse("app:admin_dashboard")
+                        + "?tab=forecast"
+                        + ("&fq=" + request.GET.get("fq", "") if request.GET.get("fq") else "")
+                    )
+
+                # Append the new month entry to the existing forecast
+                monthly.append(
+                    {
+                        "date": date_str,
+                        "unit_price": unit_price,
+                        "quantity": quantity,
+                    }
+                )
+                existing_forecast.monthly_forecasts = monthly
+                existing_forecast.part_name = part_name
+                existing_forecast.save()
+                forecast = existing_forecast
+            else:
+                monthly_forecast = [
+                    {
+                        "date": date_str,
+                        "unit_price": unit_price,
+                        "quantity": quantity,
+                    }
+                ]
+
+                forecast = Forecast.objects.create(
+                    customer=customer,
+                    part_number=part_number,
+                    part_name=part_name,
+                    monthly_forecasts=monthly_forecast,
+                )
 
             customer_parts = customer.parts or []
             part_exists = any(
@@ -710,6 +890,7 @@ def admin_dashboard(request):
             year = request.POST.get("year")
             unit_price = request.POST.get("unit_price")
             quantity = request.POST.get("quantity")
+            original_date = (request.POST.get("original_date") or "").strip()
 
             if not original_customer or not original_part_number:
                 messages.error(request, "Original customer and part number are required.")
@@ -768,35 +949,56 @@ def admin_dashboard(request):
             else:
                 forecast.customer = original_customer_obj
 
-            # Update forecast fields
+            # Update basic fields
             forecast.part_number = part_number
             forecast.part_name = part_name
 
-            # Handle monthly forecasts - ALWAYS create a new monthly forecast with the selected month/year
-            # If month and year are provided, use them
-            if month and year:
-                date_str = f"{month}-{year}"
-            else:
-                # If no month/year selected, keep the existing date from the first monthly forecast
-                if forecast.monthly_forecasts and len(forecast.monthly_forecasts) > 0:
-                    existing_date = forecast.monthly_forecasts[0].get("date", "")
-                    date_str = existing_date
-                else:
-                    # If no existing date, use current month/year
-                    from datetime import date
-                    current_year = date.today().year
-                    date_str = f"January-{current_year}"
+            # We always expect month/year for per‑month editing
+            if not month or not year:
+                messages.error(request, "Month and year are required to update a forecast.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
 
-            # Create updated monthly forecast
-            monthly_forecast = [{
-                "date": date_str,
-                "unit_price": unit_price,
-                "quantity": quantity
-            }]
-            
-            # Replace the entire monthly_forecasts with the new one
-            # This ensures the update works correctly
-            forecast.monthly_forecasts = monthly_forecast
+            date_str = f"{month}-{year}"
+
+            # Update only the targeted monthly entry (identified by original_date)
+            monthly_list = list(forecast.monthly_forecasts or [])
+            updated = False
+            original_date_normalized = original_date.lower()
+
+            for entry in monthly_list:
+                if not isinstance(entry, dict):
+                    continue
+                existing_date = str(entry.get("date", "")).strip()
+                if original_date and existing_date.lower() == original_date_normalized:
+                    entry["date"] = date_str
+                    entry["unit_price"] = unit_price
+                    entry["quantity"] = quantity
+                    updated = True
+                    break
+
+            if not updated:
+                # If we didn't find the original month, append as a new one
+                monthly_list.append(
+                    {
+                        "date": date_str,
+                        "unit_price": unit_price,
+                        "quantity": quantity,
+                    }
+                )
+
+            # Prevent duplicate month/year entries for the same forecast
+            seen_dates = set()
+            deduped = []
+            for entry in monthly_list:
+                if not isinstance(entry, dict):
+                    continue
+                d = str(entry.get("date", "")).strip()
+                key = d.lower()
+                if key and key not in seen_dates:
+                    seen_dates.add(key)
+                    deduped.append(entry)
+
+            forecast.monthly_forecasts = deduped
 
             # Save the forecast
             forecast.save()
@@ -856,6 +1058,8 @@ def admin_dashboard(request):
         if action == "delete_forecast":
             customer_name = _normalize_space(request.POST.get("customer_name"))
             part_number = _normalize_space(request.POST.get("part_number"))
+            forecast_id = (request.POST.get("forecast_id") or "").strip()
+            date_str = (request.POST.get("date") or "").strip()
 
             if not customer_name or not part_number:
                 messages.error(request, "Customer name and part number are required.")
@@ -867,30 +1071,84 @@ def admin_dashboard(request):
                 messages.error(request, f"Customer '{customer_name}' not found.")
                 return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
 
-            # Find and delete the forecast
-            forecast = Forecast.objects.filter(
+            # If a specific forecast id and date are provided, delete only that month
+            if forecast_id and date_str:
+                forecast = Forecast.objects.filter(
+                    id=forecast_id,
+                    customer=customer,
+                    part_number=part_number,
+                ).first()
+
+                if not forecast:
+                    messages.error(request, f"Forecast not found for {customer_name} - {part_number}")
+                    return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
+
+                monthly_list = list(forecast.monthly_forecasts or [])
+                target = date_str.strip().lower()
+                new_monthly = [
+                    m
+                    for m in monthly_list
+                    if not (
+                        isinstance(m, dict)
+                        and str(m.get("date", "")).strip().lower() == target
+                    )
+                ]
+
+                if not new_monthly:
+                    # No more months left → delete the whole forecast
+                    forecast.delete()
+                else:
+                    forecast.monthly_forecasts = new_monthly
+                    forecast.save()
+
+                # If no other forecasts remain for this part, clean up customer.parts
+                other_forecasts = Forecast.objects.filter(
+                    customer=customer,
+                    part_number=part_number,
+                ).exists()
+
+                if not other_forecasts:
+                    customer_parts = customer.parts or []
+                    updated_parts = [
+                        p
+                        for p in customer_parts
+                        if not (
+                            isinstance(p, dict)
+                            and str(p.get("Partcode", "")).strip() == part_number
+                        )
+                    ]
+                    customer.parts = updated_parts
+                    customer.save()
+
+                messages.success(
+                    request,
+                    f"Forecast month deleted successfully: {customer_name} - {part_number} ({date_str})",
+                )
+                return redirect(
+                    reverse("app:admin_dashboard")
+                    + "?tab=forecast"
+                    + ("&fq=" + request.GET.get("fq", "") if request.GET.get("fq") else "")
+                )
+
+            # Fallback: delete all forecasts for this customer/part if no specific month given
+            forecasts_qs = Forecast.objects.filter(
                 customer=customer,
                 part_number=part_number
-            ).first()
+            )
 
-            if not forecast:
+            if not forecasts_qs.exists():
                 messages.error(request, f"Forecast not found for {customer_name} - {part_number}")
                 return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
 
-            # Store info for message
             forecast_info = f"{customer_name} - {part_number}"
-            
-            # Delete the forecast
-            forecast.delete()
+            forecasts_qs.delete()
 
-            # Also remove from customer.parts if no other forecasts use this part number
             other_forecasts = Forecast.objects.filter(
                 customer=customer,
                 part_number=part_number
             ).exists()
-            
+
             if not other_forecasts:
-                # No other forecasts use this part number, remove from customer.parts
                 customer_parts = customer.parts or []
                 updated_parts = [
                     p for p in customer_parts 
@@ -900,7 +1158,11 @@ def admin_dashboard(request):
                 customer.save()
 
             messages.success(request, f"Forecast deleted successfully: {forecast_info}")
-            return redirect(reverse("app:admin_dashboard") + "?tab=forecast" + ("&fq=" + request.GET.get("fq", "") if request.GET.get("fq") else ""))
+            return redirect(
+                reverse("app:admin_dashboard")
+                + "?tab=forecast"
+                + ("&fq=" + request.GET.get("fq", "") if request.GET.get("fq") else "")
+            )
 
         if action == "toggle_user_admin":
             user_id = (request.POST.get("user_id") or "").strip()
@@ -1221,6 +1483,14 @@ def admin_dashboard(request):
     if tab == "forecast_summary":
         fs_data = _build_forecast_summary(fsq=fsq, fsq_customer=fsq_customer)
 
+    # Actual Delivered tab data
+    adq = (request.GET.get("adq") or "").strip()
+    ad_customer = (request.GET.get("ad_customer") or "").strip()
+
+    ad_data = {}
+    if tab == "actual_delivered":
+        ad_data = _build_actual_summary(adq=adq, ad_customer=ad_customer)
+
     tep_id = request.GET.get("tep_id")
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
 
@@ -1284,6 +1554,11 @@ def admin_dashboard(request):
         
         # Previous Forecast
         **prev_data,
+
+        # Actual Delivered
+        "adq": adq,
+        "ad_customer": ad_customer,
+        **ad_data,
     }
     
     return render(request, "admin/dashboard.html", context)
@@ -1462,17 +1737,6 @@ def admin_forecast_csv_upload(request):
             messages.error(request, "Could not read file encoding. Save as CSV UTF-8 and upload again.")
             return redirect(next_url)
 
-        csv_file = io.StringIO(content)
-        reader = csv.DictReader(csv_file)
-        reader.fieldnames = [h.strip().lstrip("\ufeff") for h in (reader.fieldnames or [])]
-
-        def sget(row, *keys, default=""):
-            for k in keys:
-                v = row.get(k)
-                if v is not None and str(v).strip() != "":
-                    return str(v).strip()
-            return default
-
         def fnum(val, default=0.0):
             try:
                 if val is None:
@@ -1480,42 +1744,254 @@ def admin_forecast_csv_upload(request):
                 s = str(val).strip()
                 if s == "":
                     return float(default)
+                s = s.replace(",", "").replace(" ", "")
+                if s == "-" or s == "":
+                    return float(default)
                 return float(s)
             except Exception:
                 return float(default)
 
-        # Group monthly entries by (customer, part_number, part_name)
+        # Try to detect the special 2-row banded header format
+        csv_file = io.StringIO(content)
+        rows = list(csv.reader(csv_file))
+
+        def _is_wide_band_format(all_rows):
+            if len(all_rows) < 3:
+                return False
+            band_line = " ".join([c or "" for c in all_rows[0]]).upper()
+            return "ACTUAL DELIVERED" in band_line and "PREVIOUS FORECAST" in band_line
+
         grouped = defaultdict(list)
 
-        for row in reader:
-            customer_name = sget(row, "customer_name", "Customer", "CUSTOMER")
-            part_number = sget(row, "part_number", "Partcode", "PART_NUMBER", "part_code")
-            part_name = sget(row, "part_name", "Partname", "PART_NAME")
+        if _is_wide_band_format(rows):
+            header_band = rows[0]
+            header_cols = rows[1]
+            data_rows = rows[2:]
 
-            date_str = sget(row, "date", "month_year", "MonthYear")
-            month = sget(row, "month", "Month")
-            year = sget(row, "year", "Year")
+            def _match_col(names):
+                for idx, col in enumerate(header_cols):
+                    name = (col or "").strip().lower()
+                    if name in names:
+                        return idx
+                return None
 
-            if not date_str:
-                if month and year:
-                    date_str = f"{month}-{year}"
-                elif month:
-                    # Fallback: assume current year if only month is given
-                    from datetime import date
-                    date_str = f"{month}-{date.today().year}"
+            idx_customer = _match_col({"customer", "customer_name"})
+            idx_part_no = _match_col({"part number", "part_number", "partcode", "part code"})
+            idx_part_name = _match_col({"part name", "part_name", "partname"})
+            idx_unit_price = _match_col({"unit price", "unit_price", "unitprice"})
 
-            unit_price = fnum(row.get("unit_price") or row.get("UnitPrice") or row.get("price"), 0.0)
-            quantity = fnum(row.get("quantity") or row.get("qty") or row.get("Quantity"), 0.0)
+            if idx_customer is None or idx_part_no is None or idx_part_name is None:
+                messages.error(request, "CSV header missing Customer / Part number / Part name.")
+                return redirect(next_url)
 
-            if not (customer_name and part_number and part_name and date_str):
-                continue
+            import re
+            band_info = []
+            for band_raw, col_raw in zip(header_band, header_cols):
+                band_label = (band_raw or "").strip().upper()
+                col_label = (col_raw or "").strip().upper()
 
-            key = (customer_name, part_number, part_name)
-            grouped[key].append({
-                "date": date_str,
-                "unit_price": unit_price,
-                "quantity": quantity,
-            })
+                if not band_label or not col_label:
+                    band_info.append(None)
+                    continue
+
+                group = None
+                if "ACTUAL DELIVERED" in band_label:
+                    group = "actual"
+                elif "PREVIOUS FORECAST" in band_label:
+                    group = "prev"
+                elif "FORECAST" in band_label and "PREVIOUS" not in band_label:
+                    group = "fore"
+                else:
+                    band_info.append(None)
+                    continue
+
+                m = re.search(r"(\d{4})", band_label)
+                year_from_band = int(m.group(1)) if m else None
+
+                month_map = {
+                    "JAN": "January",
+                    "FEB": "February",
+                    "MAR": "March",
+                    "APR": "April",
+                    "MAY": "May",
+                    "JUN": "June",
+                    "JUL": "July",
+                    "AUG": "August",
+                    "SEP": "September",
+                    "SEPT": "September",
+                    "OCT": "October",
+                    "NOV": "November",
+                    "DEC": "December",
+                }
+                key3 = col_label[:3]
+                month_full = month_map.get(key3)
+                if not month_full:
+                    band_info.append(None)
+                    continue
+
+                band_info.append(
+                    {
+                        "group": group,
+                        "month_full": month_full,
+                        "year_from_band": year_from_band,
+                    }
+                )
+
+            from datetime import date as _date_cls
+            actual_years = [
+                info["year_from_band"]
+                for info in band_info
+                if info and info["group"] == "actual" and info["year_from_band"]
+            ]
+            actual_year = actual_years[0] if actual_years else _date_cls.today().year
+            prev_year = actual_year - 1
+
+            for row_vals in data_rows:
+                if len(row_vals) < len(header_cols):
+                    row_vals = row_vals + [""] * (len(header_cols) - len(row_vals))
+
+                customer_name = (row_vals[idx_customer] or "").strip()
+                part_number = (row_vals[idx_part_no] or "").strip()
+                part_name = (row_vals[idx_part_name] or "").strip()
+
+                if not (customer_name and part_number and part_name):
+                    continue
+
+                unit_price = 0.0
+                if idx_unit_price is not None and idx_unit_price < len(row_vals):
+                    unit_price = fnum(row_vals[idx_unit_price], 0.0)
+
+                key = (customer_name, part_number, part_name)
+                date_map = {}
+
+                for col_idx, info in enumerate(band_info):
+                    if not info or col_idx >= len(row_vals):
+                        continue
+
+                    qty = fnum(row_vals[col_idx], 0.0)
+                    if not qty:
+                        continue
+
+                    group = info["group"]
+                    month_full = info["month_full"]
+
+                    if group == "actual":
+                        year = info["year_from_band"] or actual_year
+                    elif group == "prev":
+                        year = prev_year
+                    else:
+                        year = actual_year
+
+                    date_str = f"{month_full}-{year}"
+
+                    entry = date_map.get(date_str)
+                    if not entry:
+                        entry = {
+                            "date": date_str,
+                            "unit_price": unit_price,
+                        }
+                        date_map[date_str] = entry
+
+                    if group == "actual":
+                        entry["actual_quantity"] = entry.get("actual_quantity", 0.0) + qty
+                    elif group == "prev":
+                        entry["prev_quantity"] = entry.get("prev_quantity", 0.0) + qty
+                    elif group == "fore":
+                        entry["quantity"] = entry.get("quantity", 0.0) + qty
+
+                if not date_map:
+                    continue
+
+                grouped[key].extend(list(date_map.values()))
+
+        else:
+            # Fallback: original DictReader-based handling
+            csv_file = io.StringIO(content)
+            reader = csv.DictReader(csv_file)
+            reader.fieldnames = [h.strip().lstrip("\ufeff") for h in (reader.fieldnames or [])]
+
+            def sget(row, *keys, default=""):
+                for k in keys:
+                    v = row.get(k)
+                    if v is not None and str(v).strip() != "":
+                        return str(v).strip()
+                return default
+
+            for row in reader:
+                customer_name = sget(row, "customer_name", "Customer", "CUSTOMER")
+                part_number = sget(row, "part_number", "Partcode", "PART_NUMBER", "part_code")
+                part_name = sget(row, "part_name", "Partname", "PART_NAME")
+
+                unit_price = fnum(row.get("unit_price") or row.get("UnitPrice") or row.get("price"), 0.0)
+                base_quantity = fnum(row.get("quantity") or row.get("qty") or row.get("Quantity"), 0.0)
+
+                if not (customer_name and part_number and part_name):
+                    continue
+
+                key = (customer_name, part_number, part_name)
+
+                date_str = sget(row, "date", "month_year", "MonthYear")
+                month = sget(row, "month", "Month")
+                year = sget(row, "year", "Year")
+
+                if not date_str and (month or year):
+                    if month and year:
+                        date_str = f"{month}-{year}"
+                    elif month:
+                        from datetime import date
+                        date_str = f"{month}-{date.today().year}"
+
+                if date_str and base_quantity:
+                    grouped[key].append(
+                        {
+                            "date": date_str,
+                            "unit_price": unit_price,
+                            "quantity": base_quantity,
+                        }
+                    )
+
+                month_columns = [
+                    ("January", ["JAN", "Jan", "January"]),
+                    ("February", ["FEB", "Feb", "February"]),
+                    ("March", ["MAR", "Mar", "March"]),
+                    ("April", ["APR", "Apr", "April"]),
+                    ("May", ["MAY", "May"]),
+                    ("June", ["JUN", "Jun", "June"]),
+                    ("July", ["JUL", "Jul", "July"]),
+                    ("August", ["AUG", "Aug", "August"]),
+                    ("September", ["SEP", "Sept", "SEPT", "September"]),
+                    ("October", ["OCT", "Oct", "October"]),
+                    ("November", ["NOV", "Nov", "November"]),
+                    ("December", ["DEC", "Dec", "December"]),
+                ]
+
+                from datetime import date as _date_cls
+                wide_year_raw = sget(row, "forecast_year", "year_forecast", "year", "Year")
+                try:
+                    wide_year = int(wide_year_raw) if wide_year_raw else _date_cls.today().year
+                except ValueError:
+                    wide_year = _date_cls.today().year
+
+                for full_name, aliases in month_columns:
+                    header = None
+                    for alias in aliases:
+                        if alias in row:
+                            header = alias
+                            break
+                    if not header:
+                        continue
+
+                    qty_val = fnum(row.get(header), 0.0)
+                    if not qty_val:
+                        continue
+
+                    grouped[key].append(
+                        {
+                            "date": f"{full_name}-{wide_year}",
+                            "unit_price": unit_price,
+                            "quantity": qty_val,
+                        }
+                    )
 
         if not grouped:
             messages.error(request, "No valid forecast rows found in CSV.")
