@@ -1,5 +1,4 @@
 
-
 #from django.db import models
 
 # Create your models here.
@@ -142,16 +141,6 @@ class Forecast(models.Model):
         blank=True,
         help_text="List of {date, unit_price, quantity} per month, e.g. [{'date': 'Jan-2026', 'unit_price': 0.13, 'quantity': 1000}]",
     )
-    previous_forecasts = models.JSONField(
-        default=list,
-        blank=True,
-        help_text="Previous forecast values per month using the same format as monthly_forecasts.",
-    )
-    actual_delivered = models.JSONField(
-        default=list,
-        blank=True,
-        help_text="Actual delivered quantities per month using the same format as monthly_forecasts.",
-    )
 
     class Meta:
         ordering = ["part_number"]
@@ -244,4 +233,3 @@ class Forecast(models.Model):
                 except (TypeError, ValueError):
                     continue
         return total
-
