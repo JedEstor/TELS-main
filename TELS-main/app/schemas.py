@@ -74,23 +74,24 @@ class MaterialListOut(Schema):
 
 # Forecast schemas
 class MonthlyForecastIn(Schema):
-    date: str  # e.g. "Jan-2026"
+    date: str                # e.g. "Jan-2026"
     unit_price: float = 0
     quantity: float = 0
 
-
-class ForecastIn(Schema):
+class ForecastBatchPartIn(Schema):
     part_number: str
     part_name: str
-    monthly_forecasts: Optional[List[MonthlyForecastIn]] = None
+    monthly_forecasts: List[MonthlyForecastIn]
+
+class ForecastBatchIn(Schema):
+    customer_name: str
+    parts: List[ForecastBatchPartIn]
+
+
+class ForecastIn(Schema):
     customer_name: Optional[str] = None
-
-
-class ForecastHistoryIn(Schema):
-    """
-    Payload for Previous Forecast / Actual Delivered.
-    Only carries the monthly rows; the target forecast is selected by part_number in the path.
-    """
+    part_number: str
+    part_name: str
     monthly_forecasts: Optional[List[MonthlyForecastIn]] = None
 
 
@@ -106,4 +107,6 @@ class ForecastOut(Schema):
     id: int
     part_number: str
     part_name: str
-    monthly_forecasts: List[dict]  # with Total_Quantity and Total_Amount as "auto"
+    monthly_forecasts: List[dict] 
+
+
