@@ -880,6 +880,96 @@ def admin_dashboard(request):
             messages.success(request, f"Forecast added successfully for {customer_name} - {part_number}")
             return redirect(reverse("app:admin_dashboard") + "?tab=forecast" + ("&fq=" + request.GET.get("fq", "") if request.GET.get("fq") else ""))
 
+        if action == "add_actual_delivered":
+            customer_name = _normalize_space(request.POST.get("customer_name"))
+            part_name = _normalize_space(request.POST.get("part_name"))
+            part_number = _normalize_space(request.POST.get("part_number"))
+            month = request.POST.get("month")
+            year = request.POST.get("year")
+            quantity = request.POST.get("actual_quantity")
+
+            if not customer_name:
+                messages.error(request, "Customer name is required.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=actual_delivered")
+
+            if not part_name:
+                messages.error(request, "Part name is required.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=actual_delivered")
+
+            if not part_number:
+                messages.error(request, "Part number is required.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=actual_delivered")
+
+            if not month or not year:
+                messages.error(request, "Month and year are required.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=actual_delivered")
+
+            if not quantity:
+                messages.error(request, "Actual delivered quantity is required.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=actual_delivered")
+
+            try:
+                quantity_val = float(quantity)
+            except ValueError:
+                messages.error(request, "Actual delivered quantity must be a valid number.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=actual_delivered")
+
+            date_str = f"{month}-{year}"
+
+            try:
+                customer = Customer.objects.get(customer_name=customer_name)
+            except Customer.DoesNotExist:
+                messages.error(request, "Customer not found. Please create a forecast for this customer first.")
+                return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
+
+            forecast = Forecast.objects.filter(
+                customer=customer,
+                part_number=part_number,
+            ).first()
+
+            if not forecast:
+                messages.error(
+                    request,
+                    "No forecast found for this part and customer. Please create a forecast before adding Actual Delivered."
+                )
+                return redirect(reverse("app:admin_dashboard") + "?tab=forecast")
+
+            monthly = forecast.monthly_forecasts or []
+            matched = None
+            for entry in monthly:
+                if isinstance(entry, dict) and str(entry.get("date", "")).strip().lower() == date_str.lower():
+                    matched = entry
+                    break
+
+            if not matched:
+                unit_price = forecast.base_unit_price
+                matched = {
+                    "date": date_str,
+                    "unit_price": unit_price,
+                }
+                monthly.append(matched)
+
+            matched["actual_quantity"] = quantity_val
+            forecast.monthly_forecasts = monthly
+            forecast.part_name = part_name or forecast.part_name
+            forecast.save()
+
+            customer_parts = customer.parts or []
+            part_exists = any(
+                isinstance(p, dict) and str(p.get("Partcode", "")).strip() == part_number
+                for p in customer_parts
+            )
+            if not part_exists:
+                customer_parts.append({"Partcode": part_number, "Partname": part_name})
+                customer.parts = customer_parts
+                customer.save()
+
+            messages.success(
+                request,
+                f"Actual Delivered recorded for {customer_name} - {part_number} ({date_str})"
+            )
+            return redirect(reverse("app:admin_dashboard") + "?tab=actual_delivered")
+
         if action == "update_forecast":
             original_customer = _normalize_space(request.POST.get("original_customer_name"))
             original_part_number = _normalize_space(request.POST.get("original_part_number"))
@@ -1769,60 +1859,107 @@ def admin_forecast_csv_upload(request):
             data_rows = rows[2:]
 
             def _match_col(names):
+                """
+                Try to find a column whose header matches any of the expected
+                logical names. We normalise by lowercasing and stripping
+                non‑alphanumeric characters so that variants like
+                "PARTNUM", "Part Num", "part_number" etc. can all be matched.
+                """
+                import re as _re
+
+                normalized_targets = [n.lower() for n in names]
+
                 for idx, col in enumerate(header_cols):
-                    name = (col or "").strip().lower()
-                    if name in names:
-                        return idx
+                    raw = (col or "").strip().lower()
+                    if not raw:
+                        continue
+                    norm = _re.sub(r"[^a-z0-9]", "", raw)
+
+                    for target in normalized_targets:
+                        if norm == target or norm.startswith(target) or target in norm:
+                            return idx
+
                 return None
 
+            # Customer column is optional in this wide format. If it is missing
+            # we will derive the customer name from the CSV filename (which
+            # usually comes from the Excel sheet name, e.g. "J-Cash.csv").
             idx_customer = _match_col({"customer", "customer_name"})
-            idx_part_no = _match_col({"part number", "part_number", "partcode", "part code"})
-            idx_part_name = _match_col({"part name", "part_name", "partname"})
+            idx_part_no = _match_col(
+                {
+                    "partnumber",
+                    "partnum",
+                    "partno",
+                    "partcode",
+                    "partcd",
+                }
+            )
+            idx_part_name = _match_col(
+                {
+                    "partname",
+                    "partnam",
+                    "partnm",
+                }
+            )
             idx_unit_price = _match_col({"unit price", "unit_price", "unitprice"})
 
-            if idx_customer is None or idx_part_no is None or idx_part_name is None:
+            # Part number and part name are required; customer can fall back
+            # to the sheet/file name.
+            if idx_part_no is None or idx_part_name is None:
                 messages.error(request, "CSV header missing Customer / Part number / Part name.")
                 return redirect(next_url)
 
             import re
             band_info = []
+            # Excel often merges the band cell (e.g. "ACTUAL DELIVERED (2025)")
+            # across many month columns, so in the CSV only the first column of
+            # that band has text and the rest are blank. We therefore need to
+            # "carry forward" the last seen band group/year for subsequent
+            # columns until a new non-empty band cell appears.
+            current_group = None
+            current_year_from_band = None
+
+            month_map = {
+                "JAN": "January",
+                "FEB": "February",
+                "MAR": "March",
+                "APR": "April",
+                "MAY": "May",
+                "JUN": "June",
+                "JUL": "July",
+                "AUG": "August",
+                "SEP": "September",
+                "SEPT": "September",
+                "OCT": "October",
+                "NOV": "November",
+                "DEC": "December",
+            }
+
             for band_raw, col_raw in zip(header_band, header_cols):
                 band_label = (band_raw or "").strip().upper()
                 col_label = (col_raw or "").strip().upper()
 
-                if not band_label or not col_label:
+                # Detect / update the current band when there is text.
+                if band_label:
+                    group = None
+                    if "ACTUAL DELIVERED" in band_label:
+                        group = "actual"
+                    elif "PREVIOUS FORECAST" in band_label:
+                        group = "prev"
+                    elif "FORECAST" in band_label and "PREVIOUS" not in band_label:
+                        group = "fore"
+
+                    if group is not None:
+                        current_group = group
+                        m = re.search(r"(\d{4})", band_label)
+                        current_year_from_band = int(m.group(1)) if m else None
+
+                # If we still don't have a group or month header, this column
+                # does not participate in any band mapping.
+                if not col_label or not current_group:
                     band_info.append(None)
                     continue
 
-                group = None
-                if "ACTUAL DELIVERED" in band_label:
-                    group = "actual"
-                elif "PREVIOUS FORECAST" in band_label:
-                    group = "prev"
-                elif "FORECAST" in band_label and "PREVIOUS" not in band_label:
-                    group = "fore"
-                else:
-                    band_info.append(None)
-                    continue
-
-                m = re.search(r"(\d{4})", band_label)
-                year_from_band = int(m.group(1)) if m else None
-
-                month_map = {
-                    "JAN": "January",
-                    "FEB": "February",
-                    "MAR": "March",
-                    "APR": "April",
-                    "MAY": "May",
-                    "JUN": "June",
-                    "JUL": "July",
-                    "AUG": "August",
-                    "SEP": "September",
-                    "SEPT": "September",
-                    "OCT": "October",
-                    "NOV": "November",
-                    "DEC": "December",
-                }
                 key3 = col_label[:3]
                 month_full = month_map.get(key3)
                 if not month_full:
@@ -1831,26 +1968,31 @@ def admin_forecast_csv_upload(request):
 
                 band_info.append(
                     {
-                        "group": group,
+                        "group": current_group,
                         "month_full": month_full,
-                        "year_from_band": year_from_band,
+                        "year_from_band": current_year_from_band,
                     }
                 )
 
             from datetime import date as _date_cls
-            actual_years = [
-                info["year_from_band"]
-                for info in band_info
-                if info and info["group"] == "actual" and info["year_from_band"]
-            ]
-            actual_year = actual_years[0] if actual_years else _date_cls.today().year
-            prev_year = actual_year - 1
+            # For year handling we prefer the explicit year parsed from the
+            # band label (e.g. "FORECAST (2026)"). If a particular band has no
+            # year in its label, we fall back to sensible defaults based on
+            # today's year.
+            _today_year = _date_cls.today().year
+
+            # Fallback customer name from file/sheet name when no column exists.
+            import os as _os_mod
+            default_customer_name = _os_mod.path.splitext(f.name)[0] or "Unknown Customer"
 
             for row_vals in data_rows:
                 if len(row_vals) < len(header_cols):
                     row_vals = row_vals + [""] * (len(header_cols) - len(row_vals))
 
-                customer_name = (row_vals[idx_customer] or "").strip()
+                if idx_customer is not None and idx_customer < len(row_vals):
+                    customer_name = (row_vals[idx_customer] or "").strip()
+                else:
+                    customer_name = default_customer_name
                 part_number = (row_vals[idx_part_no] or "").strip()
                 part_name = (row_vals[idx_part_name] or "").strip()
 
@@ -1875,12 +2017,16 @@ def admin_forecast_csv_upload(request):
                     group = info["group"]
                     month_full = info["month_full"]
 
-                    if group == "actual":
-                        year = info["year_from_band"] or actual_year
-                    elif group == "prev":
-                        year = prev_year
-                    else:
-                        year = actual_year
+                    # Use the year from the band label when available.
+                    year = info["year_from_band"]
+                    if year is None:
+                        # Fallbacks when the band label has no year:
+                        # - actual / previous forecast → previous year
+                        # - forecast (current)         → current year
+                        if group in ("actual", "prev"):
+                            year = _today_year - 1
+                        else:  # "fore"
+                            year = _today_year
 
                     date_str = f"{month_full}-{year}"
 
@@ -1892,10 +2038,19 @@ def admin_forecast_csv_upload(request):
                         }
                         date_map[date_str] = entry
 
+                    # Map each band into the fields used by the various tabs.
+                    # - "actual" → stored as actual_quantity (used by Actual Delivered tab)
+                    # - "prev"   → stored as both prev_quantity and quantity so that
+                    #             Previous Forecast & Forecast Summary (which read
+                    #             from "quantity") can see the values for the
+                    #             previous year.
+                    # - "fore"   → stored as quantity (current forecast)
                     if group == "actual":
                         entry["actual_quantity"] = entry.get("actual_quantity", 0.0) + qty
                     elif group == "prev":
-                        entry["prev_quantity"] = entry.get("prev_quantity", 0.0) + qty
+                        prev_val = entry.get("prev_quantity", 0.0) + qty
+                        entry["prev_quantity"] = prev_val
+                        entry["quantity"] = entry.get("quantity", 0.0) + qty
                     elif group == "fore":
                         entry["quantity"] = entry.get("quantity", 0.0) + qty
 
