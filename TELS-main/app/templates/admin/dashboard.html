@@ -1262,6 +1262,109 @@
     </div>
   </div>
 
+  <!-- Actual Delivered Panel -->
+  <div id="actual-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+  <div id="actual-panel"
+       class="fixed top-0 right-0 h-full w-full sm:w-[500px]
+              bg-white text-slate-900 border-l border-slate-200 z-50
+              translate-x-full transition-transform duration-200 flex flex-col">
+
+    <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+      <div>
+        <div class="font-semibold text-emerald-700">Add Actual Delivered</div>
+        <div class="text-xs text-slate-500">Record delivered quantity for a month</div>
+      </div>
+      <button id="actual-close"
+              class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200">
+        Close
+      </button>
+    </div>
+
+    <div id="actual-content" class="flex-1 overflow-y-auto p-6">
+      <form method="post" class="space-y-5" id="actual-form" action="{% url 'app:admin_dashboard' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_actual_delivered">
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Customer Name</label>
+          <input type="text" name="customer_name" id="actual-customer-name" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                 placeholder="Enter customer name">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Part Name</label>
+          <input type="text" name="part_name" id="actual-part-name" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                 placeholder="Enter part name">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Part Number</label>
+          <input type="text" name="part_number" id="actual-part-number" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                 placeholder="Enter part number">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Month/Year</label>
+          <div class="grid grid-cols-2 gap-3">
+            <select name="month" id="actual-month" required
+                    class="px-3 py-2 rounded-xl border border-slate-300 bg-white
+                           focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+              <option value="">Select Month</option>
+              <option value="January">January</option>
+              <option value="February">February</option>
+              <option value="March">March</option>
+              <option value="April">April</option>
+              <option value="May">May</option>
+              <option value="June">June</option>
+              <option value="July">July</option>
+              <option value="August">August</option>
+              <option value="September">September</option>
+              <option value="October">October</option>
+              <option value="November">November</option>
+              <option value="December">December</option>
+            </select>
+            <select name="year" id="actual-year" required
+                    class="px-3 py-2 rounded-xl border border-slate-300 bg-white
+                           focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+              <option value="">Select Year</option>
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+              <option value="2028">2028</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700">Actual Delivered Quantity</label>
+          <input type="number" name="actual_quantity" id="actual-quantity" min="0" step="any" required
+                 class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 bg-white
+                        focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                 placeholder="Enter delivered quantity">
+        </div>
+
+        <div class="pt-4 border-t border-slate-200 flex justify-end gap-2">
+          <button type="button" id="actual-cancel"
+                  class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white">
+            Save Actual Delivered
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Edit Forecast Panel -->
   <div id="edit-forecast-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
 
@@ -1693,6 +1796,48 @@
 
       });
     }
+
+    // Actual Delivered panel
+    const actualBackdrop = document.getElementById("actual-backdrop");
+    const actualPanel = document.getElementById("actual-panel");
+    const actualClose = document.getElementById("actual-close");
+    const actualCancel = document.getElementById("actual-cancel");
+    const openActualBtn = document.getElementById("open-actual-form");
+
+    function openActualPanel() {
+      if (!actualPanel || !actualBackdrop) return;
+      actualPanel.classList.remove("translate-x-full");
+      actualBackdrop.classList.remove("hidden");
+    }
+
+    function closeActualPanel() {
+      if (!actualPanel || !actualBackdrop) return;
+      actualPanel.classList.add("translate-x-full");
+      actualBackdrop.classList.add("hidden");
+
+      const clearIds = [
+        "actual-customer-name",
+        "actual-part-name",
+        "actual-part-number",
+        "actual-month",
+        "actual-year",
+        "actual-quantity",
+      ];
+      clearIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+    }
+
+    if (openActualBtn) {
+      openActualBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        openActualPanel();
+      });
+    }
+    if (actualClose) actualClose.addEventListener("click", closeActualPanel);
+    if (actualCancel) actualCancel.addEventListener("click", closeActualPanel);
+    if (actualBackdrop) actualBackdrop.addEventListener("click", closeActualPanel);
   </script>
 
 </body>
